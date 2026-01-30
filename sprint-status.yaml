@@ -63,10 +63,10 @@ development_status:
   epic-5-retrospective: optional
 
   # Epic 6: Phase 2 Features
-  epic-6: backlog
-  6-1-slash-commands: ready-for-dev
-  6-2-analytics-dashboard: ready-for-dev
-  6-3-knowledge-glossary: ready-for-dev
-  6-4-feedback-system: ready-for-dev
+  epic-6: done
+  6-1-slash-commands: review
+  6-2-analytics-dashboard: review
+  6-3-knowledge-glossary: review
+  6-4-feedback-system: review
   6-5-slash-command-management: review
   epic-6-retrospective: optional

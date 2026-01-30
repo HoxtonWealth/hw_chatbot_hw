@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { href: '/', label: 'Upload' },
   { href: '/documents', label: 'Documents' },
   { href: '/chat', label: 'Chat' },
+  { href: '/glossary', label: 'Glossary' },
   { href: '/commands', label: 'Commands' },
   { href: '/dashboard', label: 'Dashboard' },
 ]
