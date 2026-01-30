@@ -30,11 +30,15 @@ export async function POST(request: Request) {
       )
     }
 
+    // Check if messageId is a valid UUID (messages may not be persisted to DB yet)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    const isValidUuid = uuidRegex.test(messageId)
+
     // Insert feedback into database
     const { data, error } = await supabaseAdmin
       .from('feedback')
       .insert({
-        message_id: messageId,
+        message_id: isValidUuid ? messageId : null,
         rating,
         comment: comment || null,
       })
