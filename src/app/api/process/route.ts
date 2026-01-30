@@ -6,6 +6,7 @@ import { extractText } from '@/lib/extraction/text'
 import { chunkWithSections } from '@/lib/chunking/semantic'
 import { buildHierarchy, flattenHierarchy } from '@/lib/chunking/hierarchy'
 import { generateEmbeddingsForDocument } from '@/lib/embeddings'
+import { extractGlossaryTerms } from '@/lib/glossary'
 
 export async function POST(request: NextRequest) {
   let documentId: string | undefined
@@ -233,6 +234,19 @@ export async function POST(request: NextRequest) {
     if (!embeddingResult.success) {
       // Partial success - mark as completed but log the issue
       console.warn(`Embedding generation had ${embeddingResult.failedCount} failures`)
+    }
+
+    // Extract glossary terms (non-blocking, fire-and-forget)
+    // Concatenate first 3 chunks to keep costs down
+    const glossaryContent = chunkInserts
+      .slice(0, 3)
+      .map((c) => c.content)
+      .join('\n\n')
+
+    if (glossaryContent.trim()) {
+      extractGlossaryTerms(glossaryContent, documentId).catch((err) => {
+        console.warn('Glossary extraction failed (non-blocking):', err)
+      })
     }
 
     // Update document status to completed

@@ -40,6 +40,9 @@ export default async function DocumentsPage() {
             <Button variant="ghost" asChild>
               <Link href="/chat">Chat</Link>
             </Button>
+            <Button variant="ghost" asChild>
+              <Link href="/dashboard">Dashboard</Link>
+            </Button>
           </nav>
         </div>
       </header>

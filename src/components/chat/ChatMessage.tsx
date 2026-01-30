@@ -2,15 +2,30 @@
 
 import { User, Bot } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { FeedbackButtons } from './FeedbackButtons'
+import { GlossaryEntry } from '@/lib/supabase'
+import { highlightGlossaryTerms } from '@/lib/glossary-highlighter'
+import React from 'react'
 
 interface ChatMessageProps {
   role: 'user' | 'assistant' | 'system'
   content: string
+  messageId?: string
   onCitationClick?: (citationNumber: number) => void
+  glossaryTerms?: GlossaryEntry[]
 }
 
-export function ChatMessage({ role, content, onCitationClick }: ChatMessageProps) {
+export function ChatMessage({ role, content, messageId, onCitationClick, glossaryTerms }: ChatMessageProps) {
   const isUser = role === 'user'
+
+  // Apply glossary highlighting to a text segment
+  const applyGlossaryHighlighting = (text: string, key: string): React.ReactNode => {
+    if (!glossaryTerms || glossaryTerms.length === 0) {
+      return <span key={key}>{text}</span>
+    }
+    const highlighted = highlightGlossaryTerms(text, glossaryTerms)
+    return <React.Fragment key={key}>{highlighted}</React.Fragment>
+  }
 
   // Parse and render content with clickable citations
   const renderContent = () => {
@@ -31,7 +46,7 @@ export function ChatMessage({ role, content, onCitationClick }: ChatMessageProps
           </button>
         )
       }
-      return <span key={index}>{part}</span>
+      return applyGlossaryHighlighting(part, `part-${index}`)
     })
   }
 
@@ -51,17 +66,22 @@ export function ChatMessage({ role, content, onCitationClick }: ChatMessageProps
         {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
       </div>
 
-      <div
-        className={cn(
-          'max-w-[80%] rounded-lg px-4 py-2',
-          isUser
-            ? 'bg-primary text-primary-foreground'
-            : 'bg-muted'
-        )}
-      >
-        <div className="whitespace-pre-wrap text-sm">
-          {isUser ? content : renderContent()}
+      <div className="flex flex-col">
+        <div
+          className={cn(
+            'max-w-[80%] rounded-lg px-4 py-2',
+            isUser
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-muted'
+          )}
+        >
+          <div className="whitespace-pre-wrap text-sm">
+            {isUser ? content : renderContent()}
+          </div>
         </div>
+        {!isUser && messageId && (
+          <FeedbackButtons messageId={messageId} />
+        )}
       </div>
     </div>
   )

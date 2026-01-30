@@ -8,7 +8,10 @@ import { Card } from '@/components/ui/card'
 import { ChatMessage } from './ChatMessage'
 import { CitationPanel } from './CitationPanel'
 import { ConfidenceIndicator } from './ConfidenceIndicator'
+import { CommandPalette, type CommandDefinition } from './CommandPalette'
 import { Source } from '@/lib/rag'
+import { GlossaryEntry } from '@/lib/supabase'
+import { isCommand, parseCommand, executeCommand, type CommandContext } from '@/lib/commands'
 
 interface Message {
   id: string
@@ -29,15 +32,115 @@ export function ChatInterface({ conversationId, documentIds }: ChatInterfaceProp
   const [sources, setSources] = useState<Source[]>([])
   const [confidence, setConfidence] = useState<number>(0)
   const [selectedSource, setSelectedSource] = useState<Source | null>(null)
+  const [glossaryTerms, setGlossaryTerms] = useState<GlossaryEntry[]>([])
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
+  const [commandFilter, setCommandFilter] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Fetch glossary terms on mount
+  useEffect(() => {
+    async function fetchGlossary() {
+      try {
+        const res = await fetch('/api/glossary')
+        if (res.ok) {
+          const data = await res.json()
+          if (data.success && Array.isArray(data.terms)) {
+            setGlossaryTerms(data.terms)
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to fetch glossary terms:', err)
+      }
+    }
+    fetchGlossary()
+  }, [])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // Detect slash commands in input
+  const handleInputChange = (value: string) => {
+    setInput(value)
+
+    if (value.startsWith('/')) {
+      const afterSlash = value.slice(1).split(/\s/)[0] || ''
+      setCommandFilter(afterSlash)
+      // Only show palette if user is still typing the command name (no space yet)
+      const hasSpace = value.indexOf(' ') > 0
+      setCommandPaletteOpen(!hasSpace)
+    } else {
+      setCommandPaletteOpen(false)
+      setCommandFilter('')
+    }
+  }
+
+  const handleCommandSelect = (cmd: CommandDefinition) => {
+    setCommandPaletteOpen(false)
+    setCommandFilter('')
+
+    // For /export and /sources, execute immediately
+    if (cmd.name === 'export' || cmd.name === 'sources') {
+      setInput(`/${cmd.name}`)
+      // Trigger submit after a tick so the input is set
+      setTimeout(() => {
+        handleCommandSubmit(`/${cmd.name}`)
+      }, 0)
+    } else {
+      // For /compare and /summarize, fill the usage template so user can edit args
+      setInput(cmd.usage)
+    }
+  }
+
+  const handleCommandSubmit = async (commandInput: string) => {
+    const parsed = parseCommand(commandInput)
+    if (!parsed) return
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: commandInput,
+    }
+    setMessages(prev => [...prev, userMessage])
+    setInput('')
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const context: CommandContext = {
+        messages: messages.map(m => ({ role: m.role, content: m.content })),
+        sources,
+        documentIds,
+      }
+
+      const result = await executeCommand(parsed.command, parsed.args, context)
+
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: result.content,
+      }
+      setMessages(prev => [...prev, assistantMessage])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Command execution failed')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (!input.trim() || isLoading) return
+
+    // Close command palette if open
+    setCommandPaletteOpen(false)
+    setCommandFilter('')
+
+    // Check if this is a slash command
+    if (isCommand(input)) {
+      await handleCommandSubmit(input)
+      return
+    }
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -130,7 +233,12 @@ export function ChatInterface({ conversationId, documentIds }: ChatInterfaceProp
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {messages.length === 0 && (
               <div className="flex items-center justify-center h-full text-muted-foreground">
-                <p>Ask a question about your documents...</p>
+                <div className="text-center">
+                  <p>Ask a question about your documents...</p>
+                  <p className="text-sm mt-2">
+                    Type <span className="font-mono bg-muted px-1 py-0.5 rounded">/</span> for slash commands
+                  </p>
+                </div>
               </div>
             )}
 
@@ -139,7 +247,9 @@ export function ChatInterface({ conversationId, documentIds }: ChatInterfaceProp
                 key={message.id}
                 role={message.role}
                 content={message.content}
+                messageId={message.id}
                 onCitationClick={handleCitationClick}
+                glossaryTerms={glossaryTerms}
               />
             ))}
 
@@ -168,21 +278,32 @@ export function ChatInterface({ conversationId, documentIds }: ChatInterfaceProp
 
           {/* Input */}
           <form onSubmit={handleSubmit} className="p-4 border-t">
-            <div className="flex gap-2">
-              <Input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask a question..."
-                disabled={isLoading}
-                className="flex-1"
+            <div className="relative">
+              <CommandPalette
+                isOpen={commandPaletteOpen}
+                filter={commandFilter}
+                onSelect={handleCommandSelect}
+                onClose={() => {
+                  setCommandPaletteOpen(false)
+                  setCommandFilter('')
+                }}
               />
-              <Button type="submit" disabled={isLoading || !input.trim()}>
-                {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
-              </Button>
+              <div className="flex gap-2">
+                <Input
+                  value={input}
+                  onChange={(e) => handleInputChange(e.target.value)}
+                  placeholder="Ask a question or type / for commands..."
+                  disabled={isLoading}
+                  className="flex-1"
+                />
+                <Button type="submit" disabled={isLoading || !input.trim()}>
+                  {isLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
             </div>
           </form>
         </Card>
