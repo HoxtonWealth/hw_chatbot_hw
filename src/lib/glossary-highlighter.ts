@@ -53,7 +53,7 @@ export function highlightGlossaryTerms(
           key: `glossary-${index}`,
           term: matchedText,
           definition: entry.definition,
-          sourceDocument: entry.source_document_id || undefined,
+          sourceDocument: entry.documents?.title || undefined,
         })
       )
     } else {

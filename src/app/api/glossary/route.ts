@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabaseAdmin
       .from('glossary')
-      .select('*')
+      .select('*, documents:source_document_id(title)')
       .order('term', { ascending: true })
 
     if (search) {

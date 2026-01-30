@@ -98,6 +98,7 @@ export interface GlossaryEntry {
   term: string
   definition: string
   source_document_id?: string
+  documents?: { title: string } | null
   auto_extracted: boolean
   created_at: string
 }
