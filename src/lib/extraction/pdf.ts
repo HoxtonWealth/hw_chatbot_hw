@@ -27,9 +27,10 @@ export class PDFParsingError extends Error {
 
 export async function extractPDF(buffer: Buffer): Promise<PDFExtractionResult> {
   try {
-    // Dynamic import to avoid pdf-parse trying to load test files at build time
+    // Use pdf-parse/lib/pdf-parse directly to avoid the default index.js
+    // which tries to load ./test/data/05-versions-space.pdf on import
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const pdf = require('pdf-parse')
+    const pdf = require('pdf-parse/lib/pdf-parse')
 
     const data = await pdf(buffer, {
       // Return page-by-page content
