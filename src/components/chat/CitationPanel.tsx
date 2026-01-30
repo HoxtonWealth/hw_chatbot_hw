@@ -58,16 +58,16 @@ export function CitationPanel({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
                       <FileText className="h-3 w-3" />
-                      <span className="truncate">{source.documentTitle || 'Document'}</span>
+                      <span className="truncate" title={source.documentTitle || 'Document'}>{source.documentTitle || 'Document'}</span>
                       {source.pageNumber && (
                         <span>• p.{source.pageNumber}</span>
                       )}
                     </div>
-                    <p className="text-sm line-clamp-2">
+                    <p className="text-sm line-clamp-2" title={source.content.slice(0, 300)}>
                       {source.sectionHeader && (
                         <span className="font-medium">{source.sectionHeader}: </span>
                       )}
-                      {source.content.slice(0, 100)}...
+                      {source.content.slice(0, 150)}
                     </p>
                     <div className="mt-1 text-xs text-muted-foreground">
                       Relevance: {Math.round(source.similarity * 100)}%

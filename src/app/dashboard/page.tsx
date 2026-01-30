@@ -9,6 +9,7 @@ import { GapsList } from '@/components/dashboard/GapsList'
 import { FeedbackStats } from '@/components/dashboard/FeedbackStats'
 import { RefreshCw } from 'lucide-react'
 import Link from 'next/link'
+import { AppHeader } from '@/components/layout/AppHeader'
 
 interface AnalyticsData {
   overview: {
@@ -59,25 +60,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold">GTM Knowledge Base</h1>
-          <nav className="flex items-center gap-4">
-            <Button variant="ghost" asChild>
-              <Link href="/">Upload</Link>
-            </Button>
-            <Button variant="ghost" asChild>
-              <Link href="/documents">Documents</Link>
-            </Button>
-            <Button variant="ghost" asChild>
-              <Link href="/chat">Chat</Link>
-            </Button>
-            <Button variant="ghost" asChild>
-              <Link href="/dashboard">Dashboard</Link>
-            </Button>
-          </nav>
-        </div>
-      </header>
+      <AppHeader />
 
       <main className="container mx-auto px-4 py-8 space-y-6">
         <div className="flex items-center justify-between">

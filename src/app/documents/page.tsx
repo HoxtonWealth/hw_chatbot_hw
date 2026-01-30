@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Upload } from 'lucide-react'
 import Link from 'next/link'
+import { AppHeader } from '@/components/layout/AppHeader'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,25 +28,7 @@ export default async function DocumentsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold">GTM Knowledge Base</h1>
-          <nav className="flex items-center gap-4">
-            <Button variant="ghost" asChild>
-              <Link href="/">Upload</Link>
-            </Button>
-            <Button variant="ghost" asChild>
-              <Link href="/documents">Documents</Link>
-            </Button>
-            <Button variant="ghost" asChild>
-              <Link href="/chat">Chat</Link>
-            </Button>
-            <Button variant="ghost" asChild>
-              <Link href="/dashboard">Dashboard</Link>
-            </Button>
-          </nav>
-        </div>
-      </header>
+      <AppHeader />
 
       <main className="container mx-auto px-4 py-8">
         <Card>

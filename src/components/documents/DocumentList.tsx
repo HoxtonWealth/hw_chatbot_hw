@@ -107,7 +107,7 @@ export function DocumentList({ documents }: DocumentListProps) {
               <TableCell className="font-medium">
                 <div className="flex items-center gap-2">
                   <FileText className="h-4 w-4 text-muted-foreground" />
-                  <span className="truncate max-w-[200px]">{doc.title}</span>
+                  <span className="truncate max-w-[200px]" title={doc.title}>{doc.title}</span>
                 </div>
               </TableCell>
               <TableCell>{getFileTypeLabel(doc.source_type)}</TableCell>
@@ -122,6 +122,7 @@ export function DocumentList({ documents }: DocumentListProps) {
                   size="icon"
                   onClick={() => setDeleteId(doc.id)}
                   disabled={doc.status === 'processing'}
+                  aria-label={`Delete ${doc.title}`}
                 >
                   <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
                 </Button>
