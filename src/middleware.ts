@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server'
 const COOKIE_NAME = 'gtm-kb-session'
 const SESSION_DURATION = 3600 // 60 minutes in seconds
 
-const PUBLIC_PATHS = ['/login', '/api/auth', '/api/process', '/api/feedback', '/api/glossary', '/api/documents']
+const PUBLIC_PATHS = ['/login', '/api/auth', '/api/process', '/api/feedback', '/api/glossary', '/api/documents', '/api/commands']
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl

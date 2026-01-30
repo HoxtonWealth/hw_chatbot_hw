@@ -102,3 +102,14 @@ export interface GlossaryEntry {
   auto_extracted: boolean
   created_at: string
 }
+
+export interface CustomCommand {
+  id: string
+  name: string
+  description: string
+  usage_hint?: string
+  prompt_template?: string
+  is_builtin: boolean
+  created_at: string
+  updated_at: string
+}

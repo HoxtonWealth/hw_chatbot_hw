@@ -11,7 +11,7 @@ import { ConfidenceIndicator } from './ConfidenceIndicator'
 import { CommandPalette, type CommandDefinition } from './CommandPalette'
 import { Source } from '@/lib/rag'
 import { GlossaryEntry } from '@/lib/supabase'
-import { isCommand, parseCommand, executeCommand, type CommandContext } from '@/lib/commands'
+import { isCommand, parseCommand, executeCommand, type CommandContext, VALID_COMMANDS } from '@/lib/commands'
 
 interface Message {
   id: string
@@ -35,9 +35,13 @@ export function ChatInterface({ conversationId, documentIds }: ChatInterfaceProp
   const [glossaryTerms, setGlossaryTerms] = useState<GlossaryEntry[]>([])
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const [commandFilter, setCommandFilter] = useState('')
+  const [customCommands, setCustomCommands] = useState<Array<{ name: string; description: string; usage_hint?: string }>>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  // Fetch glossary terms on mount
+  // Derive custom command names for validation
+  const customCommandNames = customCommands.map((c) => c.name)
+
+  // Fetch glossary terms and custom commands on mount
   useEffect(() => {
     async function fetchGlossary() {
       try {
@@ -52,7 +56,29 @@ export function ChatInterface({ conversationId, documentIds }: ChatInterfaceProp
         console.warn('Failed to fetch glossary terms:', err)
       }
     }
+    async function fetchCustomCommands() {
+      try {
+        const res = await fetch('/api/commands')
+        if (res.ok) {
+          const data = await res.json()
+          if (data.success && Array.isArray(data.commands)) {
+            // Filter to only non-builtin commands for the palette
+            const custom = data.commands
+              .filter((c: { is_builtin: boolean }) => !c.is_builtin)
+              .map((c: { name: string; description: string; usage_hint?: string }) => ({
+                name: c.name,
+                description: c.description,
+                usage_hint: c.usage_hint,
+              }))
+            setCustomCommands(custom)
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to fetch custom commands:', err)
+      }
+    }
     fetchGlossary()
+    fetchCustomCommands()
   }, [])
 
   useEffect(() => {
@@ -87,13 +113,13 @@ export function ChatInterface({ conversationId, documentIds }: ChatInterfaceProp
         handleCommandSubmit(`/${cmd.name}`)
       }, 0)
     } else {
-      // For /compare and /summarize, fill the usage template so user can edit args
+      // For /compare, /summarize, and custom commands, fill the usage template so user can edit args
       setInput(cmd.usage)
     }
   }
 
   const handleCommandSubmit = async (commandInput: string) => {
-    const parsed = parseCommand(commandInput)
+    const parsed = parseCommand(commandInput, customCommandNames)
     if (!parsed) return
 
     const userMessage: Message = {
@@ -136,8 +162,8 @@ export function ChatInterface({ conversationId, documentIds }: ChatInterfaceProp
     setCommandPaletteOpen(false)
     setCommandFilter('')
 
-    // Check if this is a slash command
-    if (isCommand(input)) {
+    // Check if this is a slash command (built-in or custom)
+    if (isCommand(input, customCommandNames)) {
       await handleCommandSubmit(input)
       return
     }
@@ -308,6 +334,7 @@ export function ChatInterface({ conversationId, documentIds }: ChatInterfaceProp
                   setCommandPaletteOpen(false)
                   setCommandFilter('')
                 }}
+                customCommands={customCommands}
               />
               <div className="flex gap-2">
                 <Input

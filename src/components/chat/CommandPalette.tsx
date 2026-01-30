@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { GitCompare, FileText, FolderSearch, Download, type LucideIcon } from 'lucide-react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { GitCompare, FileText, FolderSearch, Download, Sparkles, type LucideIcon } from 'lucide-react'
 
 interface CommandDefinition {
   name: string
@@ -11,7 +11,7 @@ interface CommandDefinition {
   icon: LucideIcon
 }
 
-const COMMANDS: CommandDefinition[] = [
+const BUILTIN_COMMANDS: CommandDefinition[] = [
   {
     name: 'compare',
     label: '/compare',
@@ -42,17 +42,36 @@ const COMMANDS: CommandDefinition[] = [
   },
 ]
 
+// Keep backward compatibility
+const COMMANDS = BUILTIN_COMMANDS
+
 interface CommandPaletteProps {
   isOpen: boolean
   filter: string
   onSelect: (command: CommandDefinition) => void
   onClose: () => void
+  customCommands?: Array<{
+    name: string
+    description: string
+    usage_hint?: string
+  }>
 }
 
-export function CommandPalette({ isOpen, filter, onSelect, onClose }: CommandPaletteProps) {
+export function CommandPalette({ isOpen, filter, onSelect, onClose, customCommands }: CommandPaletteProps) {
   const [selectedIndex, setSelectedIndex] = useState(0)
 
-  const filtered = COMMANDS.filter((cmd) =>
+  const allCommands = useMemo(() => {
+    const custom: CommandDefinition[] = (customCommands || []).map((c) => ({
+      name: c.name,
+      label: `/${c.name}`,
+      description: c.description,
+      usage: c.usage_hint || `/${c.name} [query]`,
+      icon: Sparkles,
+    }))
+    return [...BUILTIN_COMMANDS, ...custom]
+  }, [customCommands])
+
+  const filtered = allCommands.filter((cmd) =>
     cmd.name.toLowerCase().startsWith(filter.toLowerCase())
   )
 

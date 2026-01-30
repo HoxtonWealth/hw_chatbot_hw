@@ -68,4 +68,5 @@ development_status:
   6-2-analytics-dashboard: ready-for-dev
   6-3-knowledge-glossary: ready-for-dev
   6-4-feedback-system: ready-for-dev
+  6-5-slash-command-management: review
   epic-6-retrospective: optional
