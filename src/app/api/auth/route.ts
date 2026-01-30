@@ -1,5 +1,14 @@
 import { NextResponse } from 'next/server'
-import { validatePassword, createSession, clearSession } from '@/lib/auth'
+import { validatePassword, createSession, clearSession, validateSession } from '@/lib/auth'
+
+export async function GET() {
+  try {
+    const valid = await validateSession()
+    return NextResponse.json({ valid })
+  } catch {
+    return NextResponse.json({ valid: false })
+  }
+}
 
 export async function POST(request: Request) {
   try {

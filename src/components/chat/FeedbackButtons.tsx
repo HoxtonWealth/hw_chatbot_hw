@@ -97,7 +97,13 @@ export function FeedbackButtons({ messageId, onSubmit }: FeedbackButtonsProps) {
           <Textarea
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            placeholder="Tell us what went wrong..."
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                handleCommentSubmit()
+              }
+            }}
+            placeholder="Tell us what went wrong... (Enter to submit, Shift+Enter for new line)"
             maxLength={500}
             className="min-h-[100px]"
           />

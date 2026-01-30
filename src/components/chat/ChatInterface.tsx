@@ -227,31 +227,52 @@ export function ChatInterface({ conversationId, documentIds }: ChatInterfaceProp
   return (
     <div className="flex h-[calc(100vh-8rem)] gap-4">
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0">
         <Card className="flex-1 flex flex-col overflow-hidden">
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {messages.length === 0 && (
               <div className="flex items-center justify-center h-full text-muted-foreground">
-                <div className="text-center">
+                <div className="text-center space-y-4">
                   <p>Ask a question about your documents...</p>
-                  <p className="text-sm mt-2">
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {[
+                      'What topics are covered in my documents?',
+                      'Summarize the key takeaways',
+                      'What are the main recommendations?',
+                    ].map((q) => (
+                      <button
+                        key={q}
+                        onClick={() => {
+                          setInput(q)
+                        }}
+                        className="text-xs border rounded-full px-3 py-1.5 hover:bg-accent hover:text-accent-foreground transition-colors"
+                      >
+                        {q}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-sm">
                     Type <span className="font-mono bg-muted px-1 py-0.5 rounded">/</span> for slash commands
                   </p>
                 </div>
               </div>
             )}
 
-            {messages.map((message) => (
-              <ChatMessage
-                key={message.id}
-                role={message.role}
-                content={message.content}
-                messageId={message.id}
-                onCitationClick={handleCitationClick}
-                glossaryTerms={glossaryTerms}
-              />
-            ))}
+            {messages.map((message, idx) => {
+              const lastAssistantIdx = messages.findLastIndex(m => m.role === 'assistant')
+              return (
+                <ChatMessage
+                  key={message.id}
+                  role={message.role}
+                  content={message.content}
+                  messageId={message.id}
+                  isLatest={message.role === 'assistant' && idx === lastAssistantIdx}
+                  onCitationClick={handleCitationClick}
+                  glossaryTerms={glossaryTerms}
+                />
+              )
+            })}
 
             {isLoading && messages[messages.length - 1]?.role === 'user' && (
               <div className="flex items-center gap-2 text-muted-foreground">
@@ -292,6 +313,12 @@ export function ChatInterface({ conversationId, documentIds }: ChatInterfaceProp
                 <Input
                   value={input}
                   onChange={(e) => handleInputChange(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !commandPaletteOpen && input.trim() && !isLoading) {
+                      e.preventDefault()
+                      handleSubmit(e as unknown as FormEvent)
+                    }
+                  }}
                   placeholder="Ask a question or type / for commands..."
                   disabled={isLoading}
                   className="flex-1"
@@ -309,13 +336,15 @@ export function ChatInterface({ conversationId, documentIds }: ChatInterfaceProp
         </Card>
       </div>
 
-      {/* Citation Panel */}
-      <CitationPanel
-        sources={sources}
-        selectedSource={selectedSource}
-        onSourceSelect={setSelectedSource}
-        onClose={() => setSelectedSource(null)}
-      />
+      {/* Citation Panel - hidden on mobile */}
+      <div className="hidden md:block">
+        <CitationPanel
+          sources={sources}
+          selectedSource={selectedSource}
+          onSourceSelect={setSelectedSource}
+          onClose={() => setSelectedSource(null)}
+        />
+      </div>
     </div>
   )
 }

@@ -11,11 +11,12 @@ interface ChatMessageProps {
   role: 'user' | 'assistant' | 'system'
   content: string
   messageId?: string
+  isLatest?: boolean
   onCitationClick?: (citationNumber: number) => void
   glossaryTerms?: GlossaryEntry[]
 }
 
-export function ChatMessage({ role, content, messageId, onCitationClick, glossaryTerms }: ChatMessageProps) {
+export function ChatMessage({ role, content, messageId, isLatest, onCitationClick, glossaryTerms }: ChatMessageProps) {
   const isUser = role === 'user'
 
   // Apply glossary highlighting to a text segment
@@ -79,7 +80,7 @@ export function ChatMessage({ role, content, messageId, onCitationClick, glossar
             {isUser ? content : renderContent()}
           </div>
         </div>
-        {!isUser && messageId && (
+        {!isUser && messageId && isLatest && (
           <FeedbackButtons messageId={messageId} />
         )}
       </div>

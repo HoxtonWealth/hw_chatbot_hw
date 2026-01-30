@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { LogOut, Menu, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { toast } from '@/components/ui/sonner'
 
 const NAV_ITEMS = [
   { href: '/', label: 'Upload' },
@@ -19,6 +20,28 @@ export function AppHeader() {
   const router = useRouter()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
+  const sessionExpiredRef = useRef(false)
+
+  // Periodic session check — warn before redirect
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const res = await fetch('/api/auth')
+        const data = await res.json()
+        if (!data.valid && !sessionExpiredRef.current) {
+          sessionExpiredRef.current = true
+          toast.warning('Your session has expired. Redirecting to login...')
+          setTimeout(() => {
+            router.push('/login')
+          }, 2000)
+        }
+      } catch {
+        // Network error — skip
+      }
+    }
+    const interval = setInterval(checkSession, 30000) // Check every 30s
+    return () => clearInterval(interval)
+  }, [router])
 
   const handleLogout = async () => {
     setLoggingOut(true)

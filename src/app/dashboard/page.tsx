@@ -78,7 +78,7 @@ export default function DashboardPage() {
         )}
 
         {/* Overview Cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <MetricCard
             title="Total Documents"
             value={overview?.totalDocuments ?? 0}
@@ -108,7 +108,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Usage Stats */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <MetricCard
             title="Queries (24h)"
             value={usage?.queriesLast24h ?? 0}
@@ -129,7 +129,7 @@ export default function DashboardPage() {
           />
           <MetricCard
             title="Avg Confidence"
-            value={usage ? `${Math.round(usage.avgConfidenceScore * 100)}%` : '—'}
+            value={usage && usage.avgConfidenceScore > 0 ? `${Math.round(usage.avgConfidenceScore * 100)}%` : '—'}
             icon="target"
             loading={loading}
           />

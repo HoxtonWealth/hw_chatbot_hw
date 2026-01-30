@@ -45,7 +45,7 @@ export function TopicsChart({ topics, loading }: TopicsChartProps) {
             {topics.map((topic, index) => (
               <div key={index} className="space-y-1">
                 <div className="flex justify-between text-sm">
-                  <span className="truncate max-w-[80%]">{topic.topic}</span>
+                  <span className="truncate max-w-[80%]" title={topic.topic}>{topic.topic}</span>
                   <span className="text-muted-foreground font-medium">{topic.queryCount}</span>
                 </div>
                 <div className="h-2 bg-muted rounded-full overflow-hidden">
