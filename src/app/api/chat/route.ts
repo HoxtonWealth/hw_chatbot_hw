@@ -1,5 +1,5 @@
 import { streamText } from 'ai'
-import { openai } from '@ai-sdk/openai'
+import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { NextRequest } from 'next/server'
 import { retrieveContext } from '@/lib/retrieval/pipeline'
 import { buildRAGPrompt, buildEmptyContextPrompt, generateFollowUpSuggestions } from '@/lib/rag'
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
 
     // 3. Stream response
     const result = streamText({
-      model: openai(process.env.CHAT_MODEL || 'gpt-4o-mini'),
+      model: createOpenRouter({ apiKey: process.env.OPENROUTER_API_KEY })(process.env.CHAT_MODEL || 'openai/gpt-4o-mini'),
       system: systemPrompt,
       messages: [{ role: 'user' as const, content: message }],
       onFinish: async () => {

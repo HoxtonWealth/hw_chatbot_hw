@@ -84,8 +84,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Upload to Supabase Storage
-    const storagePath = `documents/${crypto.randomUUID()}-${file.name}`
-    const { error: storageError } = await supabaseAdmin
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+    const storagePath = `documents/${crypto.randomUUID()}-${safeName}`
+    console.log('[ingest] Uploading to storage:', {
+      bucket: 'documents',
+      path: storagePath,
+      contentType: file.type,
+      size: arrayBuffer.byteLength,
+    })
+    const { data: storageData, error: storageError } = await supabaseAdmin
       .storage
       .from('documents')
       .upload(storagePath, arrayBuffer, {
@@ -94,12 +101,19 @@ export async function POST(request: NextRequest) {
       })
 
     if (storageError) {
-      console.error('Storage error:', storageError)
+      console.error('[ingest] Storage upload FAILED:', JSON.stringify(storageError, null, 2))
+      console.error('[ingest] Storage error details:', {
+        message: storageError.message,
+        name: (storageError as any).name,
+        status: (storageError as any).statusCode || (storageError as any).status,
+        cause: (storageError as any).cause,
+      })
       return NextResponse.json(
-        { success: false, error: { code: 'E105', message: 'Failed to upload file to storage' } },
+        { success: false, error: { code: 'E105', message: 'Failed to upload file to storage', detail: storageError.message } },
         { status: 500 }
       )
     }
+    console.log('[ingest] Storage upload OK:', storageData)
 
     // Create document record
     const { data: document, error: dbError } = await supabaseAdmin

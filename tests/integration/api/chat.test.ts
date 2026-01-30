@@ -46,8 +46,10 @@ vi.mock('ai', () => ({
   }),
 }))
 
-vi.mock('@ai-sdk/openai', () => ({
-  openai: vi.fn().mockReturnValue({ modelId: 'gpt-4o-mini' }),
+vi.mock('@openrouter/ai-sdk-provider', () => ({
+  createOpenRouter: vi.fn().mockReturnValue(
+    vi.fn().mockReturnValue({ modelId: 'openai/gpt-4o-mini' })
+  ),
 }))
 
 vi.mock('@/lib/supabase', () => ({
