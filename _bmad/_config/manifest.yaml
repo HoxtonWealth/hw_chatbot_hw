@@ -1,0 +1,24 @@
+version: "6.0.0-Beta.2"
+installation:
+  date: "2026-01-28"
+  lastUpdated: "2026-01-28"
+
+ides:
+  - claude-code
+
+modules:
+  - code: core
+    name: "BMad Core Module"
+  - code: bmm
+    name: "BMad Method Agile-AI Driven-Development"
+
+config:
+  user_name: "Developer"
+  communication_language: "English"
+  document_output_language: "English"
+  output_folder: "_bmad-output"
+  project_name: "Langchainrag"
+  user_skill_level: "intermediate"
+  planning_artifacts: "_bmad-output/planning-artifacts"
+  implementation_artifacts: "_bmad-output/implementation-artifacts"
+  project_knowledge: "docs"

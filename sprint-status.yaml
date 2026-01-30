@@ -1,0 +1,71 @@
+# generated: 2026-01-29
+# project: GTM Knowledge Base
+# tracking_system: file-system
+# story_location: stories/
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+
+generated: 2026-01-29
+project: GTM Knowledge Base
+tracking_system: file-system
+story_location: stories/
+
+development_status:
+  # Epic 1: Foundation & Setup
+  epic-1: done
+  1-1-project-initialization: review
+  1-2-supabase-database-schema: review
+  1-3-authentication-middleware: review
+  epic-1-retrospective: optional
+
+  # Epic 2: Document Ingestion
+  epic-2: done
+  2-1-file-upload-ui: review
+  2-2-document-processing-pipeline: review
+  2-3-embedding-generation-storage: review
+  2-4-document-management-ui: review
+  epic-2-retrospective: optional
+
+  # Epic 3: RAG Query Pipeline
+  epic-3: done
+  3-1-hybrid-search-implementation: review
+  3-2-query-expansion-reranking: review
+  3-3-streaming-response-generation: review
+  3-4-empty-error-states: review
+  epic-3-retrospective: optional
+
+  # Epic 4: Citations & Trust
+  epic-4: done
+  4-1-citation-panel-ui: review
+  4-2-confidence-indicator: review
+  epic-4-retrospective: optional
+
+  # Epic 5: Chat Interface
+  epic-5: done
+  5-1-chat-interface: review
+  5-2-conversation-memory: review
+  epic-5-retrospective: optional
+
+  # Epic 6: Phase 2 Features
+  epic-6: backlog
+  6-1-slash-commands: ready-for-dev
+  6-2-analytics-dashboard: ready-for-dev
+  6-3-knowledge-glossary: ready-for-dev
+  6-4-feedback-system: ready-for-dev
+  epic-6-retrospective: optional
