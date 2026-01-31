@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useDropzone, FileRejection } from 'react-dropzone'
-import { Upload, FileText, X, AlertCircle } from 'lucide-react'
+import { Upload, FileText, X, AlertCircle, FolderOpen, Check, AlertTriangle } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
@@ -19,14 +19,29 @@ import {
 } from '@/components/ui/alert-dialog'
 import { toast } from '@/components/ui/sonner'
 
-const ACCEPTED_TYPES = {
+const ACCEPTED_TYPES: Record<string, string[]> = {
   'application/pdf': ['.pdf'],
   'text/plain': ['.txt'],
   'text/markdown': ['.md'],
+  'text/csv': ['.csv'],
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+  'application/vnd.ms-excel': ['.xls'],
 }
 
+const ACCEPTED_EXTENSIONS = new Set(['.pdf', '.txt', '.md', '.csv', '.docx', '.xlsx', '.xls'])
+
 const MAX_SIZE = 50 * 1024 * 1024 // 50MB
+
+// Folders to auto-exclude during folder scan
+const EXCLUDED_FOLDERS = new Set([
+  '.git', '.svn', '.hg',
+  'node_modules', '__pycache__', '.next', '.nuxt',
+  '.DS_Store', 'Thumbs.db',
+  '.idea', '.vscode', '.vs',
+  'dist', 'build', 'out',
+  '.cache', '.tmp', '.temp',
+])
 
 interface UploadingFile {
   file: File
@@ -40,14 +55,59 @@ interface DuplicateInfo {
   existingId: string
 }
 
+interface ScannedFile {
+  file: File
+  relativePath: string
+  reason?: string // rejection reason
+}
+
+interface FolderScanResult {
+  accepted: ScannedFile[]
+  rejected: ScannedFile[]
+  folderName: string
+}
+
+function getFileExtension(filename: string): string {
+  const dot = filename.lastIndexOf('.')
+  if (dot === -1) return ''
+  return filename.slice(dot).toLowerCase()
+}
+
+function getRejectionReason(file: File): string {
+  const ext = getFileExtension(file.name)
+  if (!ext) return 'No file extension'
+  if (!ACCEPTED_EXTENSIONS.has(ext)) return `Unsupported file type (${ext})`
+  if (file.size > MAX_SIZE) return `Exceeds 50MB limit (${(file.size / 1024 / 1024).toFixed(1)}MB)`
+  if (file.size === 0) return 'Empty file'
+  return 'Unknown reason'
+}
+
+function isAcceptedFile(file: File): boolean {
+  const ext = getFileExtension(file.name)
+  return ACCEPTED_EXTENSIONS.has(ext) && file.size <= MAX_SIZE && file.size > 0
+}
+
+function isExcludedPath(relativePath: string): boolean {
+  const parts = relativePath.split('/')
+  return parts.some(part => EXCLUDED_FOLDERS.has(part) || part.startsWith('.'))
+}
+
+function isFolderUploadSupported(): boolean {
+  if (typeof document === 'undefined') return false
+  const input = document.createElement('input')
+  return 'webkitdirectory' in input
+}
+
 export function FileUploader() {
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([])
   const [errors, setErrors] = useState<string[]>([])
   const [duplicateDialog, setDuplicateDialog] = useState<DuplicateInfo | null>(null)
+  const [folderScan, setFolderScan] = useState<FolderScanResult | null>(null)
+  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null)
+  const folderInputRef = useRef<HTMLInputElement>(null)
 
   const uploadFile = useCallback(async (file: File, replace: boolean = false) => {
     setUploadingFiles(prev => [...prev, { file, progress: 0, status: 'uploading' }])
-    setErrors([])
 
     const formData = new FormData()
     formData.append('file', file)
@@ -65,7 +125,6 @@ export function FileUploader() {
 
       if (!response.ok) {
         if (data.error?.code === 'E102' && data.existingId) {
-          // Duplicate file detected
           setDuplicateDialog({ file, existingId: data.existingId })
           setUploadingFiles(prev => prev.filter(f => f.file !== file))
           return
@@ -80,7 +139,6 @@ export function FileUploader() {
       )
       toast.success(`${file.name} uploaded successfully`)
 
-      // Remove completed file after 2 seconds
       setTimeout(() => {
         setUploadingFiles(prev => prev.filter(f => f.file !== file))
       }, 2000)
@@ -96,6 +154,7 @@ export function FileUploader() {
   }, [])
 
   const handleDrop = useCallback(async (acceptedFiles: File[]) => {
+    setErrors([])
     for (const file of acceptedFiles) {
       await uploadFile(file)
     }
@@ -109,7 +168,7 @@ export function FileUploader() {
           return 'File exceeds 50MB limit'
         }
         if (e.code === 'file-invalid-type') {
-          return 'Invalid file type. Accepted: PDF, TXT, DOCX, MD'
+          return 'Invalid file type. Accepted: PDF, TXT, DOCX, MD, XLSX, XLS, CSV'
         }
         return e.message
       })
@@ -129,12 +188,131 @@ export function FileUploader() {
     setUploadingFiles(prev => prev.filter(f => f.file !== file))
   }, [])
 
+  // Folder upload handling
+  const handleFolderSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+
+    setErrors([])
+    const accepted: ScannedFile[] = []
+    const rejected: ScannedFile[] = []
+
+    // Determine the top-level folder name
+    const firstPath = (files[0] as File & { webkitRelativePath?: string }).webkitRelativePath || files[0].name
+    const folderName = firstPath.split('/')[0] || 'Selected folder'
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      const relativePath = (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name
+
+      // Skip excluded folders/hidden files
+      if (isExcludedPath(relativePath)) {
+        continue // Silently skip system/hidden folders
+      }
+
+      if (isAcceptedFile(file)) {
+        accepted.push({ file, relativePath })
+      } else {
+        rejected.push({
+          file,
+          relativePath,
+          reason: getRejectionReason(file),
+        })
+      }
+    }
+
+    setFolderScan({ accepted, rejected, folderName })
+
+    // Reset the input so the same folder can be re-selected
+    if (folderInputRef.current) {
+      folderInputRef.current.value = ''
+    }
+  }, [])
+
+  const handleFolderUploadConfirm = useCallback(async () => {
+    if (!folderScan || folderScan.accepted.length === 0) return
+
+    const filesToUpload = folderScan.accepted
+    setFolderScan(null)
+    setErrors([])
+    setBatchProgress({ current: 0, total: filesToUpload.length })
+
+    // Upload with concurrency limit of 3
+    const concurrency = 3
+    let completed = 0
+
+    const uploadNext = async (index: number) => {
+      if (index >= filesToUpload.length) return
+
+      const { file } = filesToUpload[index]
+      setUploadingFiles(prev => [...prev, { file, progress: 0, status: 'uploading' }])
+
+      const formData = new FormData()
+      formData.append('file', file)
+
+      try {
+        const response = await fetch('/api/ingest', {
+          method: 'POST',
+          body: formData,
+        })
+
+        const data = await response.json()
+
+        if (!response.ok) {
+          throw new Error(data.error?.message || 'Upload failed')
+        }
+
+        setUploadingFiles(prev =>
+          prev.map(f =>
+            f.file === file ? { ...f, progress: 100, status: 'complete' } : f
+          )
+        )
+
+        setTimeout(() => {
+          setUploadingFiles(prev => prev.filter(f => f.file !== file))
+        }, 2000)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Upload failed'
+        setUploadingFiles(prev =>
+          prev.map(f =>
+            f.file === file ? { ...f, status: 'error', error: message } : f
+          )
+        )
+      }
+
+      completed++
+      setBatchProgress(prev => prev ? { ...prev, current: completed } : null)
+    }
+
+    // Process in batches
+    const queue = [...Array(filesToUpload.length).keys()]
+    const workers = Array.from({ length: Math.min(concurrency, queue.length) }, async () => {
+      while (queue.length > 0) {
+        const index = queue.shift()
+        if (index !== undefined) {
+          await uploadNext(index)
+        }
+      }
+    })
+
+    await Promise.all(workers)
+
+    setBatchProgress(null)
+    toast.success(`Folder upload complete: ${completed} files processed`)
+  }, [folderScan])
+
+  const handleFolderUploadCancel = useCallback(() => {
+    setFolderScan(null)
+  }, [])
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: ACCEPTED_TYPES,
     maxSize: MAX_SIZE,
     onDrop: handleDrop,
     onDropRejected: handleRejected,
   })
+
+  const folderSupported = isFolderUploadSupported()
 
   return (
     <div className="space-y-4">
@@ -160,10 +338,129 @@ export function FileUploader() {
             </p>
           </div>
           <p className="text-xs text-muted-foreground">
-            PDF, TXT, DOCX, MD up to 50MB
+            PDF, TXT, DOCX, MD, XLSX, CSV up to 50MB
           </p>
         </div>
       </Card>
+
+      {/* Folder upload button */}
+      <div className="flex items-center gap-3">
+        <input
+          ref={folderInputRef}
+          type="file"
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          {...({ webkitdirectory: '', directory: '' } as any)}
+          multiple
+          className="hidden"
+          onChange={handleFolderSelect}
+        />
+        <Button
+          variant="outline"
+          className="w-full gap-2"
+          onClick={() => folderInputRef.current?.click()}
+          disabled={!folderSupported || !!batchProgress}
+        >
+          <FolderOpen className="h-4 w-4" />
+          Upload Folder
+        </Button>
+      </div>
+
+      {!folderSupported && (
+        <Alert>
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            Folder upload is not supported in your browser. Use Chrome, Edge, or Firefox for folder upload.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Batch progress */}
+      {batchProgress && (
+        <Card className="p-4">
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span>Uploading folder...</span>
+              <span>{batchProgress.current} / {batchProgress.total}</span>
+            </div>
+            <Progress
+              value={(batchProgress.current / batchProgress.total) * 100}
+              className="h-2"
+            />
+          </div>
+        </Card>
+      )}
+
+      {/* Folder scan results dialog */}
+      <AlertDialog open={!!folderScan} onOpenChange={() => setFolderScan(null)}>
+        <AlertDialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Folder Scan: {folderScan?.folderName}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-4">
+                {/* Accepted files */}
+                {folderScan && folderScan.accepted.length > 0 && (
+                  <div>
+                    <p className="font-medium text-foreground flex items-center gap-1.5 mb-2">
+                      <Check className="h-4 w-4 text-green-500" />
+                      {folderScan.accepted.length} file{folderScan.accepted.length !== 1 ? 's' : ''} ready to upload
+                    </p>
+                    <div className="max-h-40 overflow-y-auto rounded border p-2 space-y-1">
+                      {folderScan.accepted.map((f, i) => (
+                        <p key={i} className="text-xs text-muted-foreground truncate" title={f.relativePath}>
+                          {f.relativePath}
+                          <span className="ml-1 text-muted-foreground/60">
+                            ({(f.file.size / 1024).toFixed(0)}KB)
+                          </span>
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Rejected files */}
+                {folderScan && folderScan.rejected.length > 0 && (
+                  <div>
+                    <p className="font-medium text-foreground flex items-center gap-1.5 mb-2">
+                      <X className="h-4 w-4 text-red-500" />
+                      {folderScan.rejected.length} file{folderScan.rejected.length !== 1 ? 's' : ''} rejected
+                    </p>
+                    <div className="max-h-40 overflow-y-auto rounded border p-2 space-y-1">
+                      {folderScan.rejected.map((f, i) => (
+                        <p key={i} className="text-xs truncate" title={f.relativePath}>
+                          <span className="text-muted-foreground">{f.relativePath}</span>
+                          <span className="text-destructive ml-1">— {f.reason}</span>
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Empty folder */}
+                {folderScan && folderScan.accepted.length === 0 && folderScan.rejected.length === 0 && (
+                  <p className="text-muted-foreground">No files found in this folder.</p>
+                )}
+
+                {folderScan && folderScan.accepted.length === 0 && folderScan.rejected.length > 0 && (
+                  <p className="text-muted-foreground">
+                    No supported files found. All files were rejected.
+                  </p>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleFolderUploadCancel}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleFolderUploadConfirm}
+              disabled={!folderScan || folderScan.accepted.length === 0}
+            >
+              Upload {folderScan?.accepted.length || 0} File{(folderScan?.accepted.length || 0) !== 1 ? 's' : ''}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {errors.length > 0 && (
         <Alert variant="destructive">

@@ -6,12 +6,15 @@ const ALLOWED_TYPES = [
   'application/pdf',
   'text/plain',
   'text/markdown',
+  'text/csv',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-excel',
 ]
 
 const MAX_SIZE = 50 * 1024 * 1024 // 50MB
 
-function getSourceType(mimeType: string): 'pdf' | 'text' | 'docx' | 'md' {
+function getSourceType(mimeType: string): 'pdf' | 'text' | 'docx' | 'md' | 'xlsx' | 'csv' {
   switch (mimeType) {
     case 'application/pdf':
       return 'pdf'
@@ -19,6 +22,11 @@ function getSourceType(mimeType: string): 'pdf' | 'text' | 'docx' | 'md' {
       return 'docx'
     case 'text/markdown':
       return 'md'
+    case 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
+    case 'application/vnd.ms-excel':
+      return 'xlsx'
+    case 'text/csv':
+      return 'csv'
     default:
       return 'text'
   }
@@ -40,7 +48,7 @@ export async function POST(request: NextRequest) {
     // Validate file type
     if (!ALLOWED_TYPES.includes(file.type)) {
       return NextResponse.json(
-        { success: false, error: { code: 'E103', message: 'Invalid file type. Accepted: PDF, TXT, DOCX, MD' } },
+        { success: false, error: { code: 'E103', message: 'Invalid file type. Accepted: PDF, TXT, DOCX, MD, XLSX, XLS, CSV' } },
         { status: 400 }
       )
     }

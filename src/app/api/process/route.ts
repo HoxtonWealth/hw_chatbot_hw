@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { extractPDF, PDFEncryptedError } from '@/lib/extraction/pdf'
 import { extractDocx } from '@/lib/extraction/docx'
 import { extractText } from '@/lib/extraction/text'
+import { extractSpreadsheet, extractCSV } from '@/lib/extraction/xlsx'
 import { chunkWithSections } from '@/lib/chunking/semantic'
 import { buildHierarchy, flattenHierarchy } from '@/lib/chunking/hierarchy'
 import { generateEmbeddingsForDocument } from '@/lib/embeddings'
@@ -99,6 +100,32 @@ export async function POST(request: NextRequest) {
             content: section.content,
           }))
           fullText = textResult.fullText
+          break
+        }
+
+        case 'xlsx': {
+          const xlsxResult = extractSpreadsheet(buffer)
+          if (xlsxResult.truncated) {
+            console.warn(`Spreadsheet truncated: exceeded row limit for document ${documentId}`)
+          }
+          sections = xlsxResult.sections.map(section => ({
+            header: section.header,
+            content: section.content,
+          }))
+          fullText = xlsxResult.fullText
+          break
+        }
+
+        case 'csv': {
+          const csvResult = extractCSV(buffer)
+          if (csvResult.truncated) {
+            console.warn(`CSV truncated: exceeded row limit for document ${documentId}`)
+          }
+          sections = csvResult.sections.map(section => ({
+            header: section.header,
+            content: section.content,
+          }))
+          fullText = csvResult.fullText
           break
         }
 
