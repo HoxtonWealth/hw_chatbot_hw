@@ -1,103 +1,108 @@
 'use client'
 
-import { X, FileText, ExternalLink } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { useState } from 'react'
+import { FileText } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Source } from '@/lib/rag'
 
 interface CitationPanelProps {
   sources: Source[]
-  selectedSource: Source | null
-  onSourceSelect: (source: Source) => void
-  onClose: () => void
+  className?: string
 }
 
-export function CitationPanel({
-  sources,
-  selectedSource,
-  onSourceSelect,
-  onClose,
-}: CitationPanelProps) {
-  if (sources.length === 0) {
-    return null
+export function CitationPanel({ sources, className }: CitationPanelProps) {
+  const [selectedSource, setSelectedSource] = useState<Source | null>(null)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+
+  if (sources.length === 0) return null
+
+  const handleSourceClick = (source: Source) => {
+    setSelectedSource(source)
+    setIsDialogOpen(true)
   }
 
   return (
-    <Card className="w-80 flex-shrink-0 flex flex-col">
-      <CardHeader className="py-3 px-4 border-b">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-medium">Sources ({sources.length})</CardTitle>
-          {selectedSource && (
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onClose}>
-              <X className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
-      </CardHeader>
-
-      <CardContent className="flex-1 p-0 overflow-hidden">
-        <ScrollArea className="h-full">
-          <div className="p-2 space-y-2">
-            {sources.map((source) => (
-              <button
-                key={source.index}
-                onClick={() => onSourceSelect(source)}
-                className={cn(
-                  'w-full text-left p-3 rounded-lg border transition-colors',
-                  selectedSource?.index === source.index
-                    ? 'border-primary bg-primary/5'
-                    : 'border-transparent hover:bg-muted'
-                )}
-              >
-                <div className="flex items-start gap-2">
-                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-medium">
-                    {source.index}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
-                      <FileText className="h-3 w-3" />
-                      <span className="truncate" title={source.documentTitle || 'Document'}>{source.documentTitle || 'Document'}</span>
-                      {source.pageNumber && (
-                        <span>• p.{source.pageNumber}</span>
-                      )}
+    <>
+      <Card className={cn('w-72', className)}>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            Sources ({sources.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <ScrollArea className="h-[400px]">
+            <div className="space-y-1 p-4 pt-0">
+              {sources.map((source) => (
+                <button
+                  key={source.index}
+                  onClick={() => handleSourceClick(source)}
+                  className="w-full text-left p-3 rounded-lg border border-transparent hover:bg-muted hover:border-border transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-medium">
+                      {source.index}
                     </div>
-                    <p className="text-sm line-clamp-2" title={source.content.slice(0, 300)}>
-                      {source.sectionHeader && (
-                        <span className="font-medium">{source.sectionHeader}: </span>
-                      )}
-                      {source.content.slice(0, 150)}
-                    </p>
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      Relevance: {Math.round(source.similarity * 100)}%
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">
+                        {source.documentTitle || 'Document'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Relevance: {Math.round(source.similarity * 100)}%
+                      </p>
                     </div>
                   </div>
-                </div>
-              </button>
-            ))}
-          </div>
-
-          {/* Expanded Source View */}
-          {selectedSource && (
-            <div className="p-4 border-t bg-muted/50">
-              <h4 className="font-medium text-sm mb-2">
-                [{selectedSource.index}] {selectedSource.sectionHeader || 'Source'}
-              </h4>
-              <p className="text-sm text-muted-foreground mb-3">
-                {selectedSource.content}
-              </p>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span>{selectedSource.documentTitle || 'Document'}</span>
-                {selectedSource.pageNumber && (
-                  <span>• Page {selectedSource.pageNumber}</span>
-                )}
-                <span>• {Math.round(selectedSource.similarity * 100)}% match</span>
-              </div>
+                </button>
+              ))}
             </div>
+          </ScrollArea>
+        </CardContent>
+      </Card>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+          {selectedSource && (
+            <>
+              <DialogHeader className="flex-shrink-0">
+                <DialogTitle className="flex items-center gap-3 pr-8">
+                  <div className="flex-shrink-0 w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-medium">
+                    {selectedSource.index}
+                  </div>
+                  <span className="break-words">
+                    {selectedSource.documentTitle || 'Source Document'}
+                  </span>
+                </DialogTitle>
+              </DialogHeader>
+
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground flex-shrink-0">
+                {selectedSource.pageNumber && (
+                  <span>Page {selectedSource.pageNumber}</span>
+                )}
+                {selectedSource.sectionHeader && (
+                  <span>Section: {selectedSource.sectionHeader}</span>
+                )}
+                <span>Relevance: {Math.round(selectedSource.similarity * 100)}%</span>
+              </div>
+
+              <ScrollArea className="flex-1 min-h-0 max-h-[55vh] mt-2">
+                <div className="pr-4">
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                    {selectedSource.content}
+                  </p>
+                </div>
+              </ScrollArea>
+            </>
           )}
-        </ScrollArea>
-      </CardContent>
-    </Card>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }

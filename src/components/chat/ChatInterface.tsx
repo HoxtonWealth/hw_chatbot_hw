@@ -31,7 +31,6 @@ export function ChatInterface({ conversationId, documentIds }: ChatInterfaceProp
   const [error, setError] = useState<string | null>(null)
   const [sources, setSources] = useState<Source[]>([])
   const [confidence, setConfidence] = useState<number>(0)
-  const [selectedSource, setSelectedSource] = useState<Source | null>(null)
   const [glossaryTerms, setGlossaryTerms] = useState<GlossaryEntry[]>([])
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const [commandFilter, setCommandFilter] = useState('')
@@ -243,13 +242,6 @@ export function ChatInterface({ conversationId, documentIds }: ChatInterfaceProp
     }
   }
 
-  const handleCitationClick = (citationNumber: number) => {
-    const source = sources.find(s => s.index === citationNumber)
-    if (source) {
-      setSelectedSource(source)
-    }
-  }
-
   return (
     <div className="flex h-[calc(100vh-8rem)] gap-4">
       {/* Main Chat Area */}
@@ -294,7 +286,6 @@ export function ChatInterface({ conversationId, documentIds }: ChatInterfaceProp
                   content={message.content}
                   messageId={message.id}
                   isLatest={message.role === 'assistant' && idx === lastAssistantIdx}
-                  onCitationClick={handleCitationClick}
                   glossaryTerms={glossaryTerms}
                 />
               )
@@ -365,12 +356,7 @@ export function ChatInterface({ conversationId, documentIds }: ChatInterfaceProp
 
       {/* Citation Panel - hidden on mobile */}
       <div className="hidden md:block">
-        <CitationPanel
-          sources={sources}
-          selectedSource={selectedSource}
-          onSourceSelect={setSelectedSource}
-          onClose={() => setSelectedSource(null)}
-        />
+        <CitationPanel sources={sources} />
       </div>
     </div>
   )
