@@ -2,6 +2,7 @@ import { expandQuery } from './query-expansion'
 import { hybridSearch, SearchResult } from './hybrid'
 import { rerank, RankedResult } from './reranker'
 import { supabaseAdmin } from '@/lib/supabase'
+import { RETRIEVAL_CONFIG } from './config'
 
 export interface ChunkWithContext extends RankedResult {
   document_title?: string
@@ -39,8 +40,8 @@ function deduplicateAndMerge(allResults: SearchResult[][]): SearchResult[] {
 // Apply MMR for diversity
 function applyMMR(
   results: RankedResult[],
-  diversityFactor: number = 0.3,
-  topK: number = 5
+  diversityFactor: number = RETRIEVAL_CONFIG.diversityFactor,
+  topK: number = RETRIEVAL_CONFIG.topK
 ): RankedResult[] {
   if (results.length <= topK) return results
 
@@ -120,10 +121,10 @@ export async function retrieveContext(
   } = {}
 ): Promise<RetrievalResult> {
   const {
-    expandQueries = true,
-    useReranking = true,
-    topK = 5,
-    diversityFactor = 0.3,
+    expandQueries = RETRIEVAL_CONFIG.expandQueries,
+    useReranking = RETRIEVAL_CONFIG.useReranking,
+    topK = RETRIEVAL_CONFIG.topK,
+    diversityFactor = RETRIEVAL_CONFIG.diversityFactor,
   } = options
 
   // 1. Expand query (optional)
@@ -133,7 +134,7 @@ export async function retrieveContext(
 
   // 2. Search all variants
   const allResults = await Promise.all(
-    queryVariants.map(q => hybridSearch({ query: q, documentIds, limit: 20 }))
+    queryVariants.map(q => hybridSearch({ query: q, documentIds }))
   )
 
   // 3. Merge and deduplicate

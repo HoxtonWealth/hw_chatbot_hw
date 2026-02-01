@@ -2,6 +2,7 @@
 
 import { AlertCircle, CheckCircle, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { RETRIEVAL_CONFIG } from '@/lib/retrieval/config'
 
 interface ConfidenceIndicatorProps {
   confidence: number
@@ -10,8 +11,8 @@ interface ConfidenceIndicatorProps {
 
 export function ConfidenceIndicator({ confidence, sourcesCount }: ConfidenceIndicatorProps) {
   const getConfidenceLevel = () => {
-    if (confidence >= 80) return 'high'
-    if (confidence >= 50) return 'medium'
+    if (confidence >= RETRIEVAL_CONFIG.confidenceLevels.high) return 'high'
+    if (confidence >= RETRIEVAL_CONFIG.confidenceLevels.medium) return 'medium'
     return 'low'
   }
 

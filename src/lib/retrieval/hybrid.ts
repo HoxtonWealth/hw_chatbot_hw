@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { generateEmbedding } from '@/lib/openai'
+import { RETRIEVAL_CONFIG } from './config'
 
 export interface HybridSearchParams {
   query: string
@@ -23,8 +24,8 @@ export interface SearchResult {
 export async function hybridSearch({
   query,
   documentIds,
-  limit = 20,
-  threshold = 0.5,
+  limit = RETRIEVAL_CONFIG.initialLimit,
+  threshold = RETRIEVAL_CONFIG.similarityThreshold,
 }: HybridSearchParams): Promise<SearchResult[]> {
   // Generate query embedding
   const queryEmbedding = await generateEmbedding(query)
@@ -52,8 +53,8 @@ export async function hybridSearch({
 export async function vectorSearch({
   query,
   documentIds,
-  limit = 20,
-  threshold = 0.5,
+  limit = RETRIEVAL_CONFIG.initialLimit,
+  threshold = RETRIEVAL_CONFIG.similarityThreshold,
 }: HybridSearchParams): Promise<SearchResult[]> {
   const queryEmbedding = await generateEmbedding(query)
 

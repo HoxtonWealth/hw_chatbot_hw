@@ -2,6 +2,7 @@ import { streamText } from 'ai'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { NextRequest } from 'next/server'
 import { retrieveContext } from '@/lib/retrieval/pipeline'
+import { RETRIEVAL_CONFIG } from '@/lib/retrieval/config'
 import { buildRAGPrompt, buildEmptyContextPrompt, generateFollowUpSuggestions } from '@/lib/rag'
 import { supabaseAdmin } from '@/lib/supabase'
 
@@ -26,7 +27,7 @@ export async function POST(request: NextRequest) {
     const { chunks, queryVariants, totalCandidates } = await retrieveContext(
       message,
       documentIds,
-      { expandQueries: true, useReranking: true, topK: 5 }
+      { expandQueries: RETRIEVAL_CONFIG.expandQueries, useReranking: RETRIEVAL_CONFIG.useReranking, topK: RETRIEVAL_CONFIG.topK }
     )
     const retrievalTime = Date.now() - retrievalStartTime
 
