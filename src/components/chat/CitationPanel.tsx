@@ -52,7 +52,7 @@ export function CitationPanel({ sources, className }: CitationPanelProps) {
                       {source.index}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">
+                      <p className="text-sm font-medium break-words">
                         {source.documentTitle || 'Document'}
                       </p>
                       <p className="text-xs text-muted-foreground">

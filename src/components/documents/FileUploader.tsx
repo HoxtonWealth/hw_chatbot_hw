@@ -462,7 +462,7 @@ export function FileUploader() {
 
       {/* Folder scan results dialog */}
       <AlertDialog open={!!folderScan} onOpenChange={() => setFolderScan(null)}>
-        <AlertDialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+        <AlertDialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <AlertDialogHeader>
             <AlertDialogTitle>
               Folder Scan: {folderScan?.folderName}
@@ -478,7 +478,7 @@ export function FileUploader() {
                     </p>
                     <div className="max-h-40 overflow-y-auto rounded border p-2 space-y-1">
                       {folderScan.accepted.map((f, i) => (
-                        <p key={i} className="text-xs text-muted-foreground truncate" title={f.relativePath}>
+                        <p key={i} className="text-xs text-muted-foreground break-all" title={f.relativePath}>
                           {f.relativePath}
                           <span className="ml-1 text-muted-foreground/60">
                             ({(f.file.size / 1024).toFixed(0)}KB)
@@ -498,7 +498,7 @@ export function FileUploader() {
                     </p>
                     <div className="max-h-40 overflow-y-auto rounded border p-2 space-y-1">
                       {folderScan.rejected.map((f, i) => (
-                        <p key={i} className="text-xs truncate" title={f.relativePath}>
+                        <p key={i} className="text-xs break-all" title={f.relativePath}>
                           <span className="text-muted-foreground">{f.relativePath}</span>
                           <span className="text-destructive ml-1">— {f.reason}</span>
                         </p>
