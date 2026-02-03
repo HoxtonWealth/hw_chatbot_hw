@@ -109,27 +109,61 @@ export function FileUploader() {
   const uploadFile = useCallback(async (file: File, replace: boolean = false) => {
     setUploadingFiles(prev => [...prev, { file, progress: 0, status: 'uploading' }])
 
-    const formData = new FormData()
-    formData.append('file', file)
-    if (replace) {
-      formData.append('replace', 'true')
-    }
-
     try {
-      const response = await fetch('/api/ingest', {
-        method: 'POST',
-        body: formData,
+      // Step 1: Get a signed upload URL from our API
+      const params = new URLSearchParams({
+        fileName: file.name,
+        fileType: file.type,
+        fileSize: String(file.size),
+      })
+      const signedRes = await fetch(`/api/ingest?${params}`)
+      const signedData = await signedRes.json()
+
+      if (!signedRes.ok) {
+        throw new Error(signedData.error?.message || 'Failed to get upload URL')
+      }
+
+      setUploadingFiles(prev =>
+        prev.map(f => f.file === file ? { ...f, progress: 30 } : f)
+      )
+
+      // Step 2: Upload directly to Supabase Storage (bypasses Vercel size limit)
+      const uploadRes = await fetch(signedData.signedUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type },
+        body: file,
       })
 
-      const data = await response.json()
+      if (!uploadRes.ok) {
+        throw new Error('Failed to upload file to storage')
+      }
 
-      if (!response.ok) {
-        if (data.error?.code === 'E102' && data.existingId) {
-          setDuplicateDialog({ file, existingId: data.existingId })
+      setUploadingFiles(prev =>
+        prev.map(f => f.file === file ? { ...f, progress: 70 } : f)
+      )
+
+      // Step 3: Register file with our API (small JSON payload)
+      const registerRes = await fetch('/api/ingest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          storagePath: signedData.path,
+          fileName: file.name,
+          fileType: file.type,
+          fileSize: file.size,
+          replace,
+        }),
+      })
+
+      const registerData = await registerRes.json()
+
+      if (!registerRes.ok) {
+        if (registerData.error?.code === 'E102' && registerData.existingId) {
+          setDuplicateDialog({ file, existingId: registerData.existingId })
           setUploadingFiles(prev => prev.filter(f => f.file !== file))
           return
         }
-        throw new Error(data.error?.message || 'Upload failed')
+        throw new Error(registerData.error?.message || 'Upload failed')
       }
 
       setUploadingFiles(prev =>
@@ -247,19 +281,55 @@ export function FileUploader() {
       const { file } = filesToUpload[index]
       setUploadingFiles(prev => [...prev, { file, progress: 0, status: 'uploading' }])
 
-      const formData = new FormData()
-      formData.append('file', file)
-
       try {
-        const response = await fetch('/api/ingest', {
-          method: 'POST',
-          body: formData,
+        // Step 1: Get signed upload URL
+        const params = new URLSearchParams({
+          fileName: file.name,
+          fileType: file.type,
+          fileSize: String(file.size),
+        })
+        const signedRes = await fetch(`/api/ingest?${params}`)
+        const signedData = await signedRes.json()
+
+        if (!signedRes.ok) {
+          throw new Error(signedData.error?.message || 'Failed to get upload URL')
+        }
+
+        setUploadingFiles(prev =>
+          prev.map(f => f.file === file ? { ...f, progress: 30 } : f)
+        )
+
+        // Step 2: Upload directly to Supabase Storage
+        const uploadRes = await fetch(signedData.signedUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': file.type },
+          body: file,
         })
 
-        const data = await response.json()
+        if (!uploadRes.ok) {
+          throw new Error('Failed to upload file to storage')
+        }
 
-        if (!response.ok) {
-          throw new Error(data.error?.message || 'Upload failed')
+        setUploadingFiles(prev =>
+          prev.map(f => f.file === file ? { ...f, progress: 70 } : f)
+        )
+
+        // Step 3: Register with API
+        const registerRes = await fetch('/api/ingest', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            storagePath: signedData.path,
+            fileName: file.name,
+            fileType: file.type,
+            fileSize: file.size,
+          }),
+        })
+
+        const registerData = await registerRes.json()
+
+        if (!registerRes.ok) {
+          throw new Error(registerData.error?.message || 'Upload failed')
         }
 
         setUploadingFiles(prev =>
