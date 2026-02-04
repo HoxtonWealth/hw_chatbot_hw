@@ -9,6 +9,10 @@ import { buildHierarchy, flattenHierarchy } from '@/lib/chunking/hierarchy'
 import { generateEmbeddingsForDocument } from '@/lib/embeddings'
 import { extractGlossaryTerms } from '@/lib/glossary'
 
+export const maxDuration = 60 // 60 second timeout (max for Hobby plan)
+
+const CHUNK_INSERT_BATCH = 50 // Insert chunks in batches to avoid oversized requests
+
 export async function POST(request: NextRequest) {
   let documentId: string | undefined
 
@@ -186,8 +190,8 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (docChunkError) {
-      console.error('Document chunk error:', docChunkError)
-      await updateDocumentError(documentId, 'E202', 'Failed to store document chunk')
+      console.error('Document chunk error:', JSON.stringify(docChunkError))
+      await updateDocumentError(documentId, 'E202', `Failed to store document chunk: ${docChunkError.message || JSON.stringify(docChunkError)}`)
       return NextResponse.json(
         { success: false, error: { code: 'E202', message: 'Failed to store chunks' } },
         { status: 500 }
@@ -242,17 +246,21 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    const { error: chunksError } = await supabaseAdmin
-      .from('document_chunks')
-      .insert(chunkInserts)
+    // Insert chunks in batches to avoid oversized requests
+    for (let i = 0; i < chunkInserts.length; i += CHUNK_INSERT_BATCH) {
+      const batch = chunkInserts.slice(i, i + CHUNK_INSERT_BATCH)
+      const { error: chunksError } = await supabaseAdmin
+        .from('document_chunks')
+        .insert(batch)
 
-    if (chunksError) {
-      console.error('Chunks insert error:', chunksError)
-      await updateDocumentError(documentId, 'E202', 'Failed to store chunks')
-      return NextResponse.json(
-        { success: false, error: { code: 'E202', message: 'Failed to store chunks' } },
-        { status: 500 }
-      )
+      if (chunksError) {
+        console.error(`Chunks insert error (batch ${i}-${i + batch.length}):`, JSON.stringify(chunksError))
+        await updateDocumentError(documentId, 'E202', `Failed to store chunks (batch ${i}): ${chunksError.message || JSON.stringify(chunksError)}`)
+        return NextResponse.json(
+          { success: false, error: { code: 'E202', message: 'Failed to store chunks' } },
+          { status: 500 }
+        )
+      }
     }
 
     // Generate embeddings for chunks
