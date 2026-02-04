@@ -6,7 +6,6 @@ import { extractText } from '@/lib/extraction/text'
 import { extractSpreadsheet, extractCSV } from '@/lib/extraction/xlsx'
 import { chunkWithSections } from '@/lib/chunking/semantic'
 import { buildHierarchy, flattenHierarchy } from '@/lib/chunking/hierarchy'
-import { generateEmbeddingsForDocument } from '@/lib/embeddings'
 import { extractGlossaryTerms } from '@/lib/glossary'
 
 export const maxDuration = 60 // 60 second timeout (max for Hobby plan)
@@ -263,16 +262,23 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Generate embeddings for chunks
-    const embeddingResult = await generateEmbeddingsForDocument(documentId)
+    // Update document status to completed BEFORE embeddings
+    // (embeddings are generated async to avoid timeout on large docs)
+    await supabaseAdmin
+      .from('documents')
+      .update({
+        status: 'completed',
+        chunk_count: chunkInserts.length,
+        error_code: null,
+        error_message: null,
+      })
+      .eq('id', documentId)
 
-    if (!embeddingResult.success) {
-      // Partial success - mark as completed but log the issue
-      console.warn(`Embedding generation had ${embeddingResult.failedCount} failures`)
-    }
+    // Generate embeddings async via separate API call
+    // This gets its own 60s timeout, avoiding timeout on large documents
+    triggerEmbeddings(documentId, request.url).catch(console.error)
 
     // Extract glossary terms (non-blocking, fire-and-forget)
-    // Concatenate first 3 chunks to keep costs down
     const glossaryContent = chunkInserts
       .slice(0, 3)
       .map((c) => c.content)
@@ -284,24 +290,13 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Update document status to completed
-    await supabaseAdmin
-      .from('documents')
-      .update({
-        status: 'completed',
-        chunk_count: chunkInserts.length,
-        error_code: null,
-        error_message: null,
-      })
-      .eq('id', documentId)
-
     return NextResponse.json({
       success: true,
       document: {
         id: documentId,
         status: 'completed',
         chunkCount: chunkInserts.length,
-        embeddingsGenerated: embeddingResult.processedCount,
+        embeddingsGenerated: 0,
       },
     })
   } catch (error) {
@@ -319,6 +314,19 @@ export async function POST(request: NextRequest) {
       { success: false, error: { code: 'E200', message: 'Processing failed' } },
       { status: 500 }
     )
+  }
+}
+
+async function triggerEmbeddings(documentId: string, requestUrl: string) {
+  try {
+    const baseUrl = new URL(requestUrl).origin
+    await fetch(`${baseUrl}/api/process/embeddings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ documentId }),
+    })
+  } catch (error) {
+    console.error('Failed to trigger embeddings:', error)
   }
 }
 
