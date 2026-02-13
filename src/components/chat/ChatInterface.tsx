@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, FormEvent } from 'react'
-import { Send, Loader2 } from 'lucide-react'
+import { Send, Loader2, MessageSquarePlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
@@ -36,6 +36,14 @@ export function ChatInterface({ conversationId, documentIds }: ChatInterfaceProp
   const [commandFilter, setCommandFilter] = useState('')
   const [customCommands, setCustomCommands] = useState<Array<{ name: string; description: string; usage_hint?: string }>>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  const handleNewChat = () => {
+    setMessages([])
+    setInput('')
+    setSources([])
+    setConfidence(0)
+    setError(null)
+  }
 
   // Derive custom command names for validation
   const customCommandNames = customCommands.map((c) => c.name)
@@ -247,6 +255,16 @@ export function ChatInterface({ conversationId, documentIds }: ChatInterfaceProp
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0">
         <Card className="flex-1 flex flex-col overflow-hidden">
+          {/* New Chat Button */}
+          {messages.length > 0 && (
+            <div className="flex justify-end px-4 pt-3">
+              <Button variant="ghost" size="sm" onClick={handleNewChat}>
+                <MessageSquarePlus className="h-4 w-4 mr-1.5" />
+                New Chat
+              </Button>
+            </div>
+          )}
+
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {messages.length === 0 && (
