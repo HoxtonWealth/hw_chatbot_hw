@@ -4,13 +4,63 @@ import type { NextRequest } from 'next/server'
 const COOKIE_NAME = 'gtm-kb-session'
 const SESSION_DURATION = 3600 // 60 minutes in seconds
 
-const PUBLIC_PATHS = ['/login', '/api/auth', '/api/process', '/api/feedback', '/api/glossary', '/api/documents', '/api/commands']
+const PUBLIC_PATHS = [
+  '/login',
+  '/api/auth',
+  '/api/process',
+  '/api/feedback',
+  '/api/glossary',
+  '/api/documents',
+  '/api/commands',
+  '/api/chat/public',
+  '/embed',
+]
+
+// --- IP-based rate limiting for /api/chat/public ---
+const RATE_LIMIT_WINDOW_MS = 60 * 1000 // 1 minute window
+const RATE_LIMIT_MAX_REQUESTS = 20      // max 20 requests per minute per IP
+
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now()
+  const entry = rateLimitMap.get(ip)
+
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS })
+    return false
+  }
+
+  entry.count++
+  return entry.count > RATE_LIMIT_MAX_REQUESTS
+}
+
+// Clean up old entries every 5 minutes to prevent memory leak
+setInterval(() => {
+  const now = Date.now()
+  for (const [ip, entry] of rateLimitMap.entries()) {
+    if (now > entry.resetAt) {
+      rateLimitMap.delete(ip)
+    }
+  }
+}, 5 * 60 * 1000)
+// --- End rate limiting ---
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Allow public paths
   if (PUBLIC_PATHS.some(p => pathname.startsWith(p))) {
+    // Rate limit the public chat endpoint
+    if (pathname === '/api/chat/public') {
+      const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+      if (isRateLimited(ip)) {
+        return new NextResponse(
+          JSON.stringify({ error: 'Too many requests. Please wait a moment.' }),
+          { status: 429, headers: { 'Content-Type': 'application/json' } }
+        )
+      }
+    }
     return NextResponse.next()
   }
 
@@ -45,12 +95,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
     '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 }
