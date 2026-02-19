@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { message, conversationId, documentIds } = body
+    const { message, conversationId, documentIds, messageCount = 0 } = body
 
     if (!message?.trim()) {
       return new Response(
@@ -34,14 +34,14 @@ export async function POST(request: NextRequest) {
     // 2. Build prompt
     const hasContext = chunks.length > 0
     const systemPrompt = hasContext
-      ? buildRAGPrompt(chunks).systemPrompt
-      : buildEmptyContextPrompt()
+      ? buildRAGPrompt(chunks, messageCount).systemPrompt
+      : buildEmptyContextPrompt(messageCount)
 
     const { sources, confidence } = hasContext
-      ? buildRAGPrompt(chunks)
+      ? buildRAGPrompt(chunks, messageCount)
       : { sources: [], confidence: 0 }
 
-    const followUpSuggestions = generateFollowUpSuggestions(message, chunks)
+    const followUpSuggestions = generateFollowUpSuggestions(message, chunks, messageCount)
 
     // 3. Stream response
     const result = streamText({

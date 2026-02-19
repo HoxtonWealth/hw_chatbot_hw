@@ -64,7 +64,7 @@ export function EmbedChat() {
       const response = await fetch('/api/chat/public', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: trimmed }),
+        body: JSON.stringify({ message: trimmed, messageCount: messages.length + 1 }),
       })
 
       if (!response.ok) {

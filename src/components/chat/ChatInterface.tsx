@@ -194,6 +194,7 @@ export function ChatInterface({ conversationId, documentIds }: ChatInterfaceProp
           message: userMessage.content,
           conversationId,
           documentIds,
+          messageCount: messages.length + 1,
         }),
       })
 
