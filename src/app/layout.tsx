@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "GTM Knowledge Base",
-  description: "AI-powered knowledge base for GTM teams",
+  title: "Hoxton Wealth's Chatbot",
+  description: "AI-powered chatbot for Hoxton Wealth",
 };
 
 export default function RootLayout({

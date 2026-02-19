@@ -57,7 +57,7 @@ export function AppHeader() {
   return (
     <header className="border-b">
       <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">GTM Knowledge Base</h1>
+        <h1 className="text-2xl font-bold">Hoxton Wealth's Chatbot</h1>
 
         {/* Desktop nav */}
         <nav className="hidden md:flex items-center gap-1">
