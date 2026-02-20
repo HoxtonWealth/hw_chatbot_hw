@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
     if (error) {
       console.error('[ingest] Signed URL error:', error)
       return NextResponse.json(
-        { success: false, error: { code: 'E105', message: 'Failed to create upload URL' } },
+        { success: false, error: { code: 'E105', message: `Failed to create upload URL: ${error.message}` } },
         { status: 500 }
       )
     }
@@ -160,7 +160,7 @@ export async function POST(request: NextRequest) {
         console.error('Database error:', dbError)
         await supabaseAdmin.storage.from('documents').remove([storagePath])
         return NextResponse.json(
-          { success: false, error: { code: 'E106', message: 'Failed to create document record' } },
+          { success: false, error: { code: 'E106', message: `Failed to create document record: ${dbError.message}` } },
           { status: 500 }
         )
       }

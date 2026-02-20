@@ -1,8 +1,21 @@
 import OpenAI from 'openai'
 
-export const openai = new OpenAI({
-  apiKey: process.env.OPENROUTER_API_KEY,
-  baseURL: 'https://openrouter.ai/api/v1',
+let _openai: OpenAI | null = null
+
+function getOpenAI(): OpenAI {
+  if (!_openai) {
+    _openai = new OpenAI({
+      apiKey: process.env.OPENROUTER_API_KEY,
+      baseURL: 'https://openrouter.ai/api/v1',
+    })
+  }
+  return _openai
+}
+
+export const openai = new Proxy({} as OpenAI, {
+  get(_target, prop) {
+    return (getOpenAI() as unknown as Record<string, unknown>)[prop as string]
+  },
 })
 
 const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL || 'text-embedding-3-small'
