@@ -28,7 +28,13 @@ export async function hybridSearch({
   threshold = RETRIEVAL_CONFIG.similarityThreshold,
 }: HybridSearchParams): Promise<SearchResult[]> {
   // Generate query embedding
-  const queryEmbedding = await generateEmbedding(query)
+  let queryEmbedding: number[]
+  try {
+    queryEmbedding = await generateEmbedding(query)
+  } catch (error) {
+    console.error('Embedding generation error:', error)
+    return []
+  }
 
   // Call hybrid search function
   const { data, error } = await supabaseAdmin.rpc('match_chunks_hybrid', {
@@ -43,7 +49,8 @@ export async function hybridSearch({
 
   if (error) {
     console.error('Hybrid search error:', error)
-    throw new Error(`Search failed: ${error.message}`)
+    // Return empty results instead of crashing — allows chat to work without knowledge base
+    return []
   }
 
   return (data || []) as SearchResult[]
