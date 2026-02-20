@@ -43,7 +43,7 @@ function formatConversationAsMarkdown(
   const lines: string[] = []
   const timestamp = new Date().toISOString()
 
-  lines.push("# Hoxton Wealth's Chatbot - Conversation Export")
+  lines.push('# Hoxton Wealth's Chatbot - Conversation Export')
   lines.push(`*Exported on ${new Date(timestamp).toLocaleString()}*`)
   lines.push('')
   lines.push('---')
@@ -71,7 +71,7 @@ function formatConversationAsMarkdown(
   }
 
   lines.push('---')
-  lines.push("*Exported from Hoxton Wealth's Chatbot*")
+  lines.push('*Exported from Hoxton Wealth's Chatbot*')
 
   return lines.join('\n')
 }
