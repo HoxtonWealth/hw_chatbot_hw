@@ -9,16 +9,27 @@ interface EmbedMessageProps {
   isStreaming?: boolean
 }
 
-const BOOKING_URL_PATTERN = /(https?:\/\/calendly\.com\/[^\s)]+)/g
+// Matches markdown links with calendly URLs: [text](https://calendly.com/...)
+const MARKDOWN_CALENDLY_PATTERN = /\[([^\]]*)\]\((https?:\/\/calendly\.com\/[^\s)]+)\)/g
+// Matches bare calendly URLs
+const BARE_CALENDLY_PATTERN = /(https?:\/\/calendly\.com\/[^\s)]+)/g
 
 function renderContent(content: string) {
-  const parts = content.split(BOOKING_URL_PATTERN)
+  // First, replace markdown-formatted Calendly links with a placeholder
+  const withoutMarkdownLinks = content.replace(MARKDOWN_CALENDLY_PATTERN, '{{CALENDLY:$2}}')
+  // Then split on bare Calendly URLs too
+  const normalized = withoutMarkdownLinks.replace(BARE_CALENDLY_PATTERN, '{{CALENDLY:$1}}')
 
-  if (parts.length === 1) return content
+  // Clean up any leftover punctuation around the placeholder
+  const cleaned = normalized.replace(/[\s]*{{CALENDLY:/g, '{{CALENDLY:').replace(/}}[\s]*[.)]/g, '}}')
+
+  if (!cleaned.includes('{{CALENDLY:')) return content
+
+  const parts = cleaned.split(/\{\{CALENDLY:(.*?)\}\}/)
 
   return parts.map((part, i) => {
-    if (BOOKING_URL_PATTERN.test(part)) {
-      BOOKING_URL_PATTERN.lastIndex = 0
+    // Odd indices are the captured URLs
+    if (i % 2 === 1) {
       return (
         <a
           key={i}
@@ -32,7 +43,10 @@ function renderContent(content: string) {
         </a>
       )
     }
-    return <span key={i}>{part}</span>
+    // Clean up any trailing/leading whitespace or orphaned punctuation
+    const trimmed = part.replace(/^\s+|\s+$/g, '').replace(/^[).\s]+|[(\s]+$/g, '')
+    if (!trimmed) return null
+    return <span key={i}>{trimmed}</span>
   })
 }
 
