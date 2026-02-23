@@ -33,15 +33,14 @@ export async function POST(request: NextRequest) {
 
     // 2. Build prompt
     const hasContext = chunks.length > 0
-    const systemPrompt = hasContext
-      ? buildRAGPrompt(chunks, messageCount).systemPrompt
+    const ragResult = hasContext ? buildRAGPrompt(chunks, messageCount) : null
+    const systemPrompt = ragResult
+      ? ragResult.systemPrompt
       : buildEmptyContextPrompt(messageCount)
+    const sources = ragResult?.sources ?? []
+    const confidence = ragResult?.confidence ?? 0
 
-    const { sources, confidence } = hasContext
-      ? buildRAGPrompt(chunks, messageCount)
-      : { sources: [], confidence: 0 }
-
-    const followUpSuggestions = generateFollowUpSuggestions(message, chunks, messageCount)
+    const followUpSuggestions = generateFollowUpSuggestions(chunks, messageCount)
 
     // 3. Stream response
     const result = streamText({
