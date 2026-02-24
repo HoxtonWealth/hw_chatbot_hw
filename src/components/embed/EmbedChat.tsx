@@ -19,10 +19,21 @@ interface Source {
   similarity: number
 }
 
-// --- Welcome message (render-only, not persisted or sent as history) ---
-const WELCOME_MESSAGE = `Hi there — I'm Hoxton Wealth's virtual advisor.
+// --- Welcome messages ---
 
-I can help with questions about pension transfers, international investment, retirement planning, tax-efficient strategies, and more.
+const CLIENT_CHECK_MESSAGE = `Hi there — I'm Hoxton Wealth's virtual advisor.
+
+Before we get started, are you an existing Hoxton Wealth client? This helps us point you in the right direction.`
+
+const EXISTING_CLIENT_RESPONSE = `For the quickest response, please reach out to our Client Services team directly:
+
+Email: client.services@hoxtonwealth.com
+Phone: +44 20 4620 4820
+WhatsApp: +44 7384 100 200
+
+You're also welcome to ask me anything here — I'm happy to help.`
+
+const NEW_CLIENT_WELCOME = `Great — I can help with questions about pension transfers, international investment, retirement planning, tax-efficient strategies, and more.
 
 What's on your mind?`
 
@@ -39,6 +50,7 @@ function formatTime(ts?: number): string {
 
 // --- localStorage persistence helpers ---
 const STORAGE_KEY = 'hw-embed-chat'
+const CLIENT_CHECK_KEY = 'hw-embed-client-check'
 const TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
 
 function loadConversation(): Message[] {
@@ -48,6 +60,7 @@ function loadConversation(): Message[] {
     const { messages, savedAt } = JSON.parse(raw)
     if (Date.now() - savedAt > TTL_MS) {
       localStorage.removeItem(STORAGE_KEY)
+      localStorage.removeItem(CLIENT_CHECK_KEY)
       return []
     }
     return messages ?? []
@@ -68,9 +81,30 @@ function saveConversation(messages: Message[]) {
   }
 }
 
+function loadClientCheck(): 'pending' | 'done' {
+  try {
+    return localStorage.getItem(CLIENT_CHECK_KEY) === 'done' ? 'done' : 'pending'
+  } catch {
+    return 'pending'
+  }
+}
+
+function saveClientCheck(status: 'pending' | 'done') {
+  try {
+    if (status === 'done') {
+      localStorage.setItem(CLIENT_CHECK_KEY, 'done')
+    } else {
+      localStorage.removeItem(CLIENT_CHECK_KEY)
+    }
+  } catch {
+    // Silently skip
+  }
+}
+
 function clearConversation() {
   try {
     localStorage.removeItem(STORAGE_KEY)
+    localStorage.removeItem(CLIENT_CHECK_KEY)
   } catch {
     // Silently skip
   }
@@ -78,6 +112,10 @@ function clearConversation() {
 
 export function EmbedChat() {
   const [messages, setMessages] = useState<Message[]>(() => loadConversation())
+  const [clientCheck, setClientCheck] = useState<'pending' | 'done'>(() => {
+    const msgs = loadConversation()
+    return msgs.length > 0 ? 'done' : loadClientCheck()
+  })
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [streamingContent, setStreamingContent] = useState('')
@@ -90,6 +128,11 @@ export function EmbedChat() {
   useEffect(() => {
     saveConversation(messages)
   }, [messages])
+
+  // Persist client check status
+  useEffect(() => {
+    saveClientCheck(clientCheck)
+  }, [clientCheck])
 
   // Auto-scroll to bottom when new messages arrive
   const scrollToBottom = useCallback(() => {
@@ -104,6 +147,27 @@ export function EmbedChat() {
   useEffect(() => {
     scrollToBottom()
   }, [messages, streamingContent, isLoading, scrollToBottom])
+
+  const handleExistingClient = useCallback(() => {
+    const userMsg: Message = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: "Yes, I'm an existing client",
+      createdAt: Date.now(),
+    }
+    const assistantMsg: Message = {
+      id: crypto.randomUUID(),
+      role: 'assistant',
+      content: EXISTING_CLIENT_RESPONSE,
+      createdAt: Date.now(),
+    }
+    setMessages([userMsg, assistantMsg])
+    setClientCheck('done')
+  }, [])
+
+  const handleNewClient = useCallback(() => {
+    setClientCheck('done')
+  }, [])
 
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || isLoading) return
@@ -206,9 +270,13 @@ export function EmbedChat() {
     setMessages([])
     setSources([])
     setSuggestions([])
+    setClientCheck('pending')
     clearConversation()
     inputRef.current?.focus()
   }
+
+  const showClientCheck = messages.length === 0 && !isLoading && clientCheck === 'pending'
+  const showNewClientWelcome = messages.length === 0 && !isLoading && clientCheck === 'done'
 
   return (
     <div className="flex flex-col h-full bg-white rounded-2xl shadow-xl overflow-hidden">
@@ -237,11 +305,37 @@ export function EmbedChat() {
 
       {/* Messages */}
       <ScrollArea ref={scrollRef} className="flex-1 px-4 py-3">
-        {messages.length === 0 && !isLoading && (
+        {/* Step 1: Client check */}
+        {showClientCheck && (
           <>
             <EmbedMessage
               role="assistant"
-              content={WELCOME_MESSAGE}
+              content={CLIENT_CHECK_MESSAGE}
+              timestamp={formatTime()}
+            />
+            <div className="flex flex-wrap gap-2 mt-1 mb-3 ml-[42px]">
+              <button
+                onClick={handleExistingClient}
+                className="text-xs px-3 py-1.5 rounded-full border border-neutral-200 text-neutral-600 hover:bg-neutral-50 hover:border-neutral-300 hover:text-neutral-900 transition-colors"
+              >
+                Yes, I&apos;m an existing client
+              </button>
+              <button
+                onClick={handleNewClient}
+                className="text-xs px-3 py-1.5 rounded-full border border-neutral-200 text-neutral-600 hover:bg-neutral-50 hover:border-neutral-300 hover:text-neutral-900 transition-colors"
+              >
+                No, I&apos;m new here
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* Step 2: New client welcome (after clicking "No, I'm new") */}
+        {showNewClientWelcome && (
+          <>
+            <EmbedMessage
+              role="assistant"
+              content={NEW_CLIENT_WELCOME}
               timestamp={formatTime()}
             />
             <div className="flex flex-wrap gap-1.5 mt-1 mb-3 ml-[42px]">
@@ -314,7 +408,7 @@ export function EmbedChat() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Write a reply"
-            disabled={isLoading}
+            disabled={isLoading || clientCheck === 'pending'}
             className="w-full px-4 py-3 pr-10 text-sm bg-neutral-50 rounded-full border border-neutral-200 outline-none focus:border-[#1B3B36]/30 focus:ring-1 focus:ring-[#1B3B36]/20 placeholder:text-neutral-400 transition-colors disabled:opacity-50"
             autoFocus
           />
