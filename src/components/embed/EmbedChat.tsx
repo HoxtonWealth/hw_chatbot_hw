@@ -313,16 +313,16 @@ export function EmbedChat() {
               content={CLIENT_CHECK_MESSAGE}
               timestamp={formatTime()}
             />
-            <div className="flex flex-wrap gap-2 mt-1 mb-3 ml-[42px]">
+            <div className="flex gap-2 mt-3 mb-3 ml-[42px]">
               <button
                 onClick={handleExistingClient}
-                className="text-xs px-3 py-1.5 rounded-full border border-neutral-200 text-neutral-600 hover:bg-neutral-50 hover:border-neutral-300 hover:text-neutral-900 transition-colors"
+                className="text-sm font-medium px-4 py-2 rounded-full bg-[#1B3B36] text-white hover:bg-[#1B3B36]/90 transition-colors shadow-sm"
               >
-                Yes, I&apos;m an existing client
+                Yes, existing client
               </button>
               <button
                 onClick={handleNewClient}
-                className="text-xs px-3 py-1.5 rounded-full border border-neutral-200 text-neutral-600 hover:bg-neutral-50 hover:border-neutral-300 hover:text-neutral-900 transition-colors"
+                className="text-sm font-medium px-4 py-2 rounded-full bg-amber-500 text-white hover:bg-amber-600 transition-colors shadow-sm"
               >
                 No, I&apos;m new here
               </button>
