@@ -35,12 +35,34 @@ function isRateLimited(ip: string): boolean {
   return entry.count > RATE_LIMIT_MAX_REQUESTS
 }
 
+// --- Authenticated /api/chat rate limiting ---
+const AUTH_RATE_LIMIT_MAX = 30 // 30 requests per minute for authenticated users
+const authRateLimitMap = new Map<string, { count: number; resetAt: number }>()
+
+function isAuthRateLimited(ip: string): boolean {
+  const now = Date.now()
+  const entry = authRateLimitMap.get(ip)
+
+  if (!entry || now > entry.resetAt) {
+    authRateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS })
+    return false
+  }
+
+  entry.count++
+  return entry.count > AUTH_RATE_LIMIT_MAX
+}
+
 // Clean up old entries every 5 minutes to prevent memory leak
 setInterval(() => {
   const now = Date.now()
   for (const [ip, entry] of rateLimitMap.entries()) {
     if (now > entry.resetAt) {
       rateLimitMap.delete(ip)
+    }
+  }
+  for (const [ip, entry] of authRateLimitMap.entries()) {
+    if (now > entry.resetAt) {
+      authRateLimitMap.delete(ip)
     }
   }
 }, 5 * 60 * 1000)
@@ -78,6 +100,17 @@ export function middleware(request: NextRequest) {
   if (!session) {
     const loginUrl = new URL('/login', request.url)
     return NextResponse.redirect(loginUrl)
+  }
+
+  // Rate limit authenticated chat endpoint
+  if (pathname === '/api/chat') {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    if (isAuthRateLimited(ip)) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Too many requests. Please wait a moment.' }),
+        { status: 429, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
   }
 
   // Refresh cookie (sliding window) - extends session on each valid request

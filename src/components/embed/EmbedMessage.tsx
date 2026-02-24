@@ -50,6 +50,18 @@ function renderContent(content: string) {
   })
 }
 
+export function TypingIndicator() {
+  return (
+    <div className="flex w-full mb-3 justify-start">
+      <div className="bg-neutral-100 text-neutral-900 rounded-2xl rounded-bl-md px-4 py-3 flex items-center gap-1">
+        <span className="w-1.5 h-1.5 rounded-full bg-neutral-400 animate-bounce [animation-delay:0ms]" />
+        <span className="w-1.5 h-1.5 rounded-full bg-neutral-400 animate-bounce [animation-delay:150ms]" />
+        <span className="w-1.5 h-1.5 rounded-full bg-neutral-400 animate-bounce [animation-delay:300ms]" />
+      </div>
+    </div>
+  )
+}
+
 export function EmbedMessage({ role, content, isStreaming }: EmbedMessageProps) {
   return (
     <div

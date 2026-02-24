@@ -4,8 +4,8 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { EmbedMessage } from './EmbedMessage'
-import { Send } from 'lucide-react'
+import { EmbedMessage, TypingIndicator } from './EmbedMessage'
+import { Send, MessageSquarePlus } from 'lucide-react'
 
 interface Message {
   id: string
@@ -20,14 +20,59 @@ interface Source {
   similarity: number
 }
 
+// --- localStorage persistence helpers ---
+const STORAGE_KEY = 'hw-embed-chat'
+const TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
+
+function loadConversation(): Message[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return []
+    const { messages, savedAt } = JSON.parse(raw)
+    if (Date.now() - savedAt > TTL_MS) {
+      localStorage.removeItem(STORAGE_KEY)
+      return []
+    }
+    return messages ?? []
+  } catch {
+    return []
+  }
+}
+
+function saveConversation(messages: Message[]) {
+  try {
+    if (messages.length === 0) {
+      localStorage.removeItem(STORAGE_KEY)
+      return
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ messages, savedAt: Date.now() }))
+  } catch {
+    // Storage full or unavailable — silently skip
+  }
+}
+
+function clearConversation() {
+  try {
+    localStorage.removeItem(STORAGE_KEY)
+  } catch {
+    // Silently skip
+  }
+}
+
 export function EmbedChat() {
-  const [messages, setMessages] = useState<Message[]>([])
+  const [messages, setMessages] = useState<Message[]>(() => loadConversation())
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [streamingContent, setStreamingContent] = useState('')
   const [sources, setSources] = useState<Source[]>([])
+  const [suggestions, setSuggestions] = useState<string[]>([])
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // Persist messages to localStorage
+  useEffect(() => {
+    saveConversation(messages)
+  }, [messages])
 
   // Auto-scroll to bottom when new messages arrive
   const scrollToBottom = useCallback(() => {
@@ -41,30 +86,28 @@ export function EmbedChat() {
 
   useEffect(() => {
     scrollToBottom()
-  }, [messages, streamingContent, scrollToBottom])
+  }, [messages, streamingContent, isLoading, scrollToBottom])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const trimmed = input.trim()
-    if (!trimmed || isLoading) return
+  const sendMessage = useCallback(async (text: string) => {
+    if (!text.trim() || isLoading) return
 
-    // Add user message
     const userMessage: Message = {
       id: crypto.randomUUID(),
       role: 'user',
-      content: trimmed,
+      content: text.trim(),
     }
     setMessages(prev => [...prev, userMessage])
     setInput('')
     setIsLoading(true)
     setStreamingContent('')
     setSources([])
+    setSuggestions([])
 
     try {
       const response = await fetch('/api/chat/public', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: trimmed, messageCount: messages.length + 1 }),
+        body: JSON.stringify({ message: text.trim(), messageCount: messages.length + 1 }),
       })
 
       if (!response.ok) {
@@ -95,6 +138,7 @@ export function EmbedChat() {
 
             if (parsed.type === 'metadata') {
               setSources(parsed.sources || [])
+              setSuggestions(parsed.suggestions || [])
             } else if (parsed.type === 'text') {
               accumulated += parsed.content
               setStreamingContent(accumulated)
@@ -125,6 +169,19 @@ export function EmbedChat() {
       setIsLoading(false)
       inputRef.current?.focus()
     }
+  }, [isLoading, messages.length])
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    sendMessage(input)
+  }
+
+  const handleNewChat = () => {
+    setMessages([])
+    setSources([])
+    setSuggestions([])
+    clearConversation()
+    inputRef.current?.focus()
   }
 
   return (
@@ -132,7 +189,17 @@ export function EmbedChat() {
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-3 border-b bg-white">
         <div className="w-2 h-2 rounded-full bg-green-500" />
-        <span className="text-sm font-medium text-neutral-900">Knowledge Base</span>
+        <span className="text-sm font-medium text-neutral-900 flex-1">Knowledge Base</span>
+        {messages.length > 0 && (
+          <button
+            onClick={handleNewChat}
+            className="flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-700 transition-colors"
+            title="New Chat"
+          >
+            <MessageSquarePlus className="h-3.5 w-3.5" />
+            New Chat
+          </button>
+        )}
       </div>
 
       {/* Messages */}
@@ -146,6 +213,8 @@ export function EmbedChat() {
         {messages.map(msg => (
           <EmbedMessage key={msg.id} role={msg.role} content={msg.content} />
         ))}
+
+        {isLoading && !streamingContent && <TypingIndicator />}
 
         {streamingContent && (
           <EmbedMessage role="assistant" content={streamingContent} isStreaming />
@@ -165,6 +234,21 @@ export function EmbedChat() {
                 </span>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Follow-up suggestion chips */}
+        {!isLoading && !streamingContent && suggestions.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-2 mb-3 px-1">
+            {suggestions.map((suggestion, i) => (
+              <button
+                key={i}
+                onClick={() => sendMessage(suggestion)}
+                className="text-xs px-3 py-1.5 rounded-full border border-neutral-200 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 transition-colors"
+              >
+                {suggestion}
+              </button>
+            ))}
           </div>
         )}
       </ScrollArea>

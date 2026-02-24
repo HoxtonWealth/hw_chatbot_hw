@@ -86,28 +86,89 @@ function textOverlap(a: string, b: string): number {
   return intersection / Math.max(wordsA.size, wordsB.size)
 }
 
-// Get parent context for a chunk
-async function getParentContext(chunkId: string): Promise<{
-  document_title?: string
-  parent_summary?: string
-}> {
+// Batch get parent context for multiple chunks (3 queries instead of N RPCs)
+async function batchGetParentContext(
+  chunkIds: string[]
+): Promise<Map<string, { document_title?: string; parent_summary?: string }>> {
+  const result = new Map<string, { document_title?: string; parent_summary?: string }>()
+  if (chunkIds.length === 0) return result
+
   try {
-    const { data } = await supabaseAdmin.rpc('get_chunk_with_parents', {
-      chunk_id: chunkId,
-    })
+    // 1. Get chunks' parent_chunk_id values
+    const { data: chunks } = await supabaseAdmin
+      .from('document_chunks')
+      .select('id, parent_chunk_id')
+      .in('id', chunkIds)
 
-    if (!data || data.length === 0) return {}
+    if (!chunks || chunks.length === 0) return result
 
-    const docLevel = data.find((d: { level: string }) => d.level === 'document')
-    const sectionLevel = data.find((d: { level: string }) => d.level === 'section')
+    // Collect parent IDs (section-level)
+    const sectionParentIds = chunks
+      .map((c: { parent_chunk_id: string | null }) => c.parent_chunk_id)
+      .filter((id): id is string => id !== null)
 
-    return {
-      document_title: docLevel?.summary?.slice(0, 100),
-      parent_summary: sectionLevel?.summary,
+    // Build chunk -> section parent mapping
+    const chunkToSectionParent = new Map<string, string>()
+    for (const chunk of chunks) {
+      if (chunk.parent_chunk_id) {
+        chunkToSectionParent.set(chunk.id, chunk.parent_chunk_id)
+      }
+    }
+
+    // 2. Get section-level parents (and their parent IDs for document level)
+    let sectionMap = new Map<string, { summary?: string; parent_chunk_id?: string }>()
+    if (sectionParentIds.length > 0) {
+      const { data: sections } = await supabaseAdmin
+        .from('document_chunks')
+        .select('id, content, parent_chunk_id')
+        .in('id', sectionParentIds)
+
+      if (sections) {
+        for (const section of sections) {
+          sectionMap.set(section.id, {
+            summary: section.content,
+            parent_chunk_id: section.parent_chunk_id,
+          })
+        }
+      }
+    }
+
+    // 3. Get document-level parents
+    const docParentIds = [...sectionMap.values()]
+      .map(s => s.parent_chunk_id)
+      .filter((id): id is string => id !== null && id !== undefined)
+
+    let docMap = new Map<string, string>()
+    if (docParentIds.length > 0) {
+      const { data: docs } = await supabaseAdmin
+        .from('document_chunks')
+        .select('id, content')
+        .in('id', docParentIds)
+
+      if (docs) {
+        for (const doc of docs) {
+          docMap.set(doc.id, doc.content)
+        }
+      }
+    }
+
+    // Assemble results for each chunk
+    for (const chunkId of chunkIds) {
+      const sectionParentId = chunkToSectionParent.get(chunkId)
+      const section = sectionParentId ? sectionMap.get(sectionParentId) : undefined
+      const docParentId = section?.parent_chunk_id
+      const docContent = docParentId ? docMap.get(docParentId) : undefined
+
+      result.set(chunkId, {
+        document_title: docContent?.slice(0, 100),
+        parent_summary: section?.summary,
+      })
     }
   } catch {
-    return {}
+    // Return empty results on error
   }
+
+  return result
 }
 
 export async function retrieveContext(
@@ -149,13 +210,12 @@ export async function retrieveContext(
   // 5. Apply MMR for diversity
   const diverse = applyMMR(reranked, diversityFactor, topK)
 
-  // 6. Get parent context
-  const chunksWithContext = await Promise.all(
-    diverse.map(async (chunk) => {
-      const parentContext = await getParentContext(chunk.id)
-      return { ...chunk, ...parentContext }
-    })
-  )
+  // 6. Get parent context (batched: 3 queries instead of N RPCs)
+  const parentContextMap = await batchGetParentContext(diverse.map(c => c.id))
+  const chunksWithContext = diverse.map((chunk) => ({
+    ...chunk,
+    ...parentContextMap.get(chunk.id),
+  }))
 
   return {
     chunks: chunksWithContext,
