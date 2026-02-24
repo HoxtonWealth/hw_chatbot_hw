@@ -109,8 +109,8 @@ CONVERSATION STAGE — LATE (guiding toward next steps):
 function getConversationLayer(messageCount: number): string {
   // Convert total messages to approximate user turns
   const userTurns = Math.ceil(messageCount / 2)
-  if (userTurns >= 5) return LATE_CONVERSATION_LAYER
-  if (userTurns >= 3) return MID_CONVERSATION_LAYER
+  if (userTurns >= 4) return LATE_CONVERSATION_LAYER
+  if (userTurns >= 2) return MID_CONVERSATION_LAYER
   return EARLY_CONVERSATION_LAYER
 }
 
@@ -262,7 +262,7 @@ export function generateFollowUpSuggestions(
   // Fill with stage-appropriate fallbacks if fewer than 2 header-derived suggestions
   const userTurns = Math.ceil(messageCount / 2)
   if (suggestions.length < 2) {
-    const fallbacks = userTurns >= 3 ? LATER_FALLBACK_CHIPS : EARLY_FALLBACK_CHIPS
+    const fallbacks = userTurns >= 2 ? LATER_FALLBACK_CHIPS : EARLY_FALLBACK_CHIPS
     for (const chip of fallbacks) {
       if (suggestions.length >= 2) break
       if (!suggestions.includes(chip)) {
@@ -272,7 +272,7 @@ export function generateFollowUpSuggestions(
   }
 
   // Add advisor chip at turn 3+
-  if (userTurns >= 3 && BOOKING_URL) {
+  if (userTurns >= 2 && BOOKING_URL) {
     suggestions.push('How can I speak with an advisor?')
   }
 
