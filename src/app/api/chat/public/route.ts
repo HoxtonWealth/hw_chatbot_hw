@@ -22,13 +22,28 @@ export async function OPTIONS() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { message, messageCount = 0 } = body
+    const { message, messageCount = 0, history: rawHistory } = body
 
     if (!message?.trim()) {
       return new Response(
         JSON.stringify({ error: 'Message is required' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
+    }
+
+    // Validate and sanitize conversation history (cap to last 6 messages)
+    const history: { role: 'user' | 'assistant'; content: string }[] = []
+    if (Array.isArray(rawHistory)) {
+      for (const msg of rawHistory.slice(-6)) {
+        if (
+          msg &&
+          typeof msg.content === 'string' &&
+          msg.content.trim() &&
+          (msg.role === 'user' || msg.role === 'assistant')
+        ) {
+          history.push({ role: msg.role, content: msg.content.trim() })
+        }
+      }
     }
 
     // 1. Retrieve relevant context (reuses existing pipeline)
@@ -59,7 +74,7 @@ export async function POST(request: NextRequest) {
         process.env.CHAT_MODEL || 'openai/gpt-4o-mini'
       ),
       system: systemPrompt,
-      messages: [{ role: 'user' as const, content: message }],
+      messages: [...history, { role: 'user' as const, content: message }],
     })
 
     const stream = result.textStream

@@ -20,6 +20,19 @@ interface Source {
   similarity: number
 }
 
+// --- Welcome message (render-only, not persisted or sent as history) ---
+const WELCOME_MESSAGE = `Hi there — I'm Hoxton Wealth's virtual advisor.
+
+I can help with questions about pension transfers, international investment, retirement planning, tax-efficient strategies, and more.
+
+What's on your mind?`
+
+const WELCOME_SUGGESTIONS = [
+  'Tell me about pension transfers',
+  'How does international investment work?',
+  'What areas does Hoxton cover?',
+]
+
 // --- localStorage persistence helpers ---
 const STORAGE_KEY = 'hw-embed-chat'
 const TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
@@ -104,10 +117,16 @@ export function EmbedChat() {
     setSuggestions([])
 
     try {
+      const recentHistory = messages.slice(-6).map(m => ({ role: m.role, content: m.content }))
+
       const response = await fetch('/api/chat/public', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text.trim(), messageCount: messages.length + 1 }),
+        body: JSON.stringify({
+          message: text.trim(),
+          messageCount: messages.length + 1,
+          history: recentHistory,
+        }),
       })
 
       if (!response.ok) {
@@ -205,9 +224,20 @@ export function EmbedChat() {
       {/* Messages */}
       <ScrollArea ref={scrollRef} className="flex-1 px-4 py-4">
         {messages.length === 0 && !isLoading && (
-          <div className="flex items-center justify-center h-full text-neutral-400 text-sm">
-            Ask me anything about our knowledge base
-          </div>
+          <>
+            <EmbedMessage role="assistant" content={WELCOME_MESSAGE} />
+            <div className="flex flex-wrap gap-1.5 mt-2 mb-3 px-1">
+              {WELCOME_SUGGESTIONS.map((suggestion, i) => (
+                <button
+                  key={i}
+                  onClick={() => sendMessage(suggestion)}
+                  className="text-xs px-3 py-1.5 rounded-full border border-neutral-200 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 transition-colors"
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+          </>
         )}
 
         {messages.map(msg => (
