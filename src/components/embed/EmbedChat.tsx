@@ -211,7 +211,7 @@ export function EmbedChat() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-white">
+    <div className="flex flex-col h-full bg-white rounded-2xl shadow-xl overflow-hidden">
       {/* Header */}
       <div className="flex items-center px-5 py-4 bg-white">
         <span className="text-lg font-semibold text-neutral-900 flex-1">

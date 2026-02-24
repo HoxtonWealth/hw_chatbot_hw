@@ -13,7 +13,7 @@ export default function EmbedLayout({
 }) {
   return (
     <html lang="en">
-      <body className="bg-transparent m-0 p-0 overflow-hidden">
+      <body className="bg-transparent m-0 p-0 overflow-hidden h-screen flex items-end justify-end sm:p-4">
         {children}
       </body>
     </html>
