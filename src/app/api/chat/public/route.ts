@@ -4,6 +4,7 @@ import { NextRequest } from 'next/server'
 import { retrieveContext } from '@/lib/retrieval/pipeline'
 import { RETRIEVAL_CONFIG } from '@/lib/retrieval/config'
 import { buildRAGPrompt, buildEmptyContextPrompt, generateFollowUpSuggestions } from '@/lib/rag'
+import { classifyIntent } from '@/lib/intent-classifier'
 
 export const maxDuration = 30
 
@@ -46,6 +47,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 0. Classify intent (lightweight, no LLM call)
+    const intent = classifyIntent(message)
+
     // 1. Retrieve relevant context (reuses existing pipeline)
     const { chunks } = await retrieveContext(
       message,
@@ -85,6 +89,7 @@ export async function POST(request: NextRequest) {
       sources,
       confidence,
       suggestions: followUpSuggestions,
+      intent: intent.intent,
     })
 
     const readable = new ReadableStream({

@@ -36,6 +36,30 @@ describe('buildRAGPrompt', () => {
     const result = buildRAGPrompt(SAMPLE_CHUNKS as any)
     expect(result.sources[0].content).toBe(SAMPLE_CHUNKS[0].content)
   })
+
+  it('includes static context XML tags for Hoxton identity', () => {
+    const result = buildRAGPrompt(SAMPLE_CHUNKS as any)
+    expect(result.systemPrompt).toContain('<static_context>')
+    expect(result.systemPrompt).toContain('</static_context>')
+  })
+
+  it('includes few-shot examples in the prompt', () => {
+    const result = buildRAGPrompt(SAMPLE_CHUNKS as any)
+    expect(result.systemPrompt).toContain('<examples>')
+    expect(result.systemPrompt).toContain('</examples>')
+    expect(result.systemPrompt).toContain('<example>')
+  })
+
+  it('includes conversation stage layer based on message count', () => {
+    const early = buildRAGPrompt(SAMPLE_CHUNKS as any, 0)
+    expect(early.systemPrompt).toContain('EARLY')
+
+    const mid = buildRAGPrompt(SAMPLE_CHUNKS as any, 4)
+    expect(mid.systemPrompt).toContain('MID')
+
+    const late = buildRAGPrompt(SAMPLE_CHUNKS as any, 8)
+    expect(late.systemPrompt).toContain('LATE')
+  })
 })
 
 describe('buildEmptyContextPrompt', () => {
@@ -51,18 +75,34 @@ describe('buildEmptyContextPrompt', () => {
       result.includes('no') || result.includes('not') || result.includes('without')
     ).toBe(true)
   })
+
+  it('includes the Hoxton identity static context', () => {
+    const result = buildEmptyContextPrompt()
+    expect(result).toContain('<static_context>')
+    expect(result).toContain('Hoxton Wealth')
+  })
+
+  it('includes few-shot examples', () => {
+    const result = buildEmptyContextPrompt()
+    expect(result).toContain('<examples>')
+  })
 })
 
 describe('generateFollowUpSuggestions', () => {
   it('returns an array of suggestions', () => {
-    const result = generateFollowUpSuggestions('What is our target market?', SAMPLE_CHUNKS as any)
+    const result = generateFollowUpSuggestions(SAMPLE_CHUNKS as any)
     expect(result).toBeInstanceOf(Array)
   })
 
   it('returns suggestions as strings', () => {
-    const result = generateFollowUpSuggestions('Tell me about metrics', SAMPLE_CHUNKS as any)
+    const result = generateFollowUpSuggestions(SAMPLE_CHUNKS as any)
     for (const suggestion of result) {
       expect(typeof suggestion).toBe('string')
     }
+  })
+
+  it('returns at most 3 suggestions', () => {
+    const result = generateFollowUpSuggestions(SAMPLE_CHUNKS as any, 6)
+    expect(result.length).toBeLessThanOrEqual(3)
   })
 })

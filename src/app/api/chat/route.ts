@@ -5,6 +5,7 @@ import { retrieveContext } from '@/lib/retrieval/pipeline'
 import { RETRIEVAL_CONFIG } from '@/lib/retrieval/config'
 import { buildRAGPrompt, buildEmptyContextPrompt, generateFollowUpSuggestions } from '@/lib/rag'
 import { supabaseAdmin } from '@/lib/supabase'
+import { classifyIntent } from '@/lib/intent-classifier'
 
 export const maxDuration = 30 // 30 second timeout
 
@@ -13,7 +14,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { message, conversationId, documentIds, messageCount = 0 } = body
+    const { message, conversationId, documentIds, messageCount = 0, history: rawHistory } = body
 
     if (!message?.trim()) {
       return new Response(
@@ -21,6 +22,24 @@ export async function POST(request: NextRequest) {
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
+
+    // Validate and sanitize conversation history (cap to last 10 messages for authenticated users)
+    const history: { role: 'user' | 'assistant'; content: string }[] = []
+    if (Array.isArray(rawHistory)) {
+      for (const msg of rawHistory.slice(-10)) {
+        if (
+          msg &&
+          typeof msg.content === 'string' &&
+          msg.content.trim() &&
+          (msg.role === 'user' || msg.role === 'assistant')
+        ) {
+          history.push({ role: msg.role, content: msg.content.trim() })
+        }
+      }
+    }
+
+    // 0. Classify intent (lightweight, no LLM call)
+    const intent = classifyIntent(message)
 
     // 1. Retrieve relevant context
     const retrievalStartTime = Date.now()
@@ -46,7 +65,7 @@ export async function POST(request: NextRequest) {
     const result = streamText({
       model: createOpenRouter({ apiKey: process.env.OPENROUTER_API_KEY })(process.env.CHAT_MODEL || 'openai/gpt-4o-mini'),
       system: systemPrompt,
-      messages: [{ role: 'user' as const, content: message }],
+      messages: [...history, { role: 'user' as const, content: message }],
       onFinish: async () => {
         // Log query metrics
         try {
@@ -57,6 +76,7 @@ export async function POST(request: NextRequest) {
             chunks_retrieved: chunks.map(c => c.id),
             similarity_scores: chunks.map(c => c.combined_score),
             retrieval_method: 'hybrid',
+            intent: intent.intent,
             retrieval_latency_ms: retrievalTime,
             generation_latency_ms: Date.now() - startTime - retrievalTime,
             total_latency_ms: Date.now() - startTime,
@@ -79,6 +99,7 @@ export async function POST(request: NextRequest) {
       suggestions: followUpSuggestions,
       retrievalTime,
       totalCandidates,
+      intent: intent.intent,
     })
 
     const readable = new ReadableStream({

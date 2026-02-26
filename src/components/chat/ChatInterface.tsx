@@ -195,6 +195,7 @@ export function ChatInterface({ conversationId, documentIds }: ChatInterfaceProp
           conversationId,
           documentIds,
           messageCount: messages.length + 1,
+          history: messages.slice(-10).map(m => ({ role: m.role, content: m.content })),
         }),
       })
 
